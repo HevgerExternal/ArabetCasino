@@ -84,8 +84,9 @@ class UserController extends Controller
         return response()->json(['message' => 'User created successfully', 'user' => $newUser], 201);
     }
 
+
     /**
-     * Get users by role.
+     * Get users by role with pagination.
      */
     public function getUsersByRole(Request $request, $roleId)
     {
@@ -99,8 +100,15 @@ class UserController extends Controller
 
         // Get users in the role within the authenticated user's hierarchy
         $userIds = UserHierarchy::where('ancestorId', $authenticatedUser->id)->pluck('descendantId');
-        $users = User::whereIn('id', $userIds)->where('roleId', $roleId)->get();
+        $users = User::whereIn('id', $userIds)
+            ->where('roleId', $roleId)
+            ->paginate(10);
 
-        return response()->json(['users' => $users], 200);
+            return response()->json([
+                'current_page' => $users->currentPage(),
+                'per_page' => $users->perPage(),
+                'total' => $users->total(),
+                'data' => $users->items(),
+            ], 200);
     }
 }
