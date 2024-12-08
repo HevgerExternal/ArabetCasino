@@ -27,6 +27,11 @@ class AuthController extends Controller
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
+        // Check if the user is blocked
+        if (!$user->status) {
+            return response()->json(['message' => 'User is blocked'], 403);
+        }
+
         // Prevent users with the "Player" role from logging in via this endpoint
         if ($user->role->name === 'Player') {
             return response()->json(['message' => 'Players are not allowed to login'], 403);

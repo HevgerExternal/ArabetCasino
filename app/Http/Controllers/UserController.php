@@ -21,7 +21,7 @@ class UserController extends Controller
         // Validate the request
         $data = $request->validate([
             'username' => 'required|string|alpha_num|unique:users,username',
-            'password' => 'required|string',
+            'password' => 'required|string|min:6',
             'roleId' => 'required|integer|exists:roles,id',
             'parentId' => 'nullable|integer|exists:users,id',
         ]);
@@ -110,5 +110,152 @@ class UserController extends Controller
                 'total' => $users->total(),
                 'data' => $users->items(),
             ], 200);
+    }
+
+    /**
+     * Search users by username, with optional role filtering, within hierarchy.
+     */
+    public function searchUsers(Request $request)
+    {
+        $authenticatedUser = $request->user();
+
+        // Validate the input
+        $request->validate([
+            'username' => 'required|string',
+            'roleId' => 'nullable|integer|exists:roles,id', // Role is optional
+        ]);
+
+        // Get descendant IDs from hierarchy
+        $userIds = UserHierarchy::where('ancestorId', $authenticatedUser->id)->pluck('descendantId');
+
+        // Base query
+        $query = User::whereIn('id', $userIds)
+            ->where('username', 'like', '%' . $request->username . '%');
+
+        // Optional role filter
+        if ($request->has('roleId')) {
+            $query->where('roleId', $request->roleId);
+        }
+
+        // Paginate the results
+        $users = $query->paginate(10);
+
+        return response()->json([
+            'current_page' => $users->currentPage(),
+            'per_page' => $users->perPage(),
+            'total' => $users->total(),
+            'data' => $users->items(),
+        ], 200);
+    }
+
+    /**
+     * Change the status of a user.
+     */
+    public function changeStatus(Request $request, $userId)
+    {
+        $authenticatedUser = $request->user();
+
+        // Validate the input
+        $request->validate([
+            'status' => 'required|boolean',
+        ]);
+
+        $user = User::find($userId);
+
+        // Ensure the user exists
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        // Ensure the target user is in the hierarchy
+        $isInHierarchy = UserHierarchy::where('ancestorId', $authenticatedUser->id)
+            ->where('descendantId', $user->id)
+            ->exists();
+
+        if (!$isInHierarchy) {
+            return response()->json(['message' => 'Unauthorized: User is not in your hierarchy'], 403);
+        }
+
+        // Ensure the target user is in a lower role
+        if ($authenticatedUser->role->id >= $user->role->id) {
+            return response()->json(['message' => 'Unauthorized: Cannot change status for users of equal or higher role'], 403);
+        }
+
+        // Update the status
+        $user->update(['status' => $request->status]);
+
+        return response()->json(['message' => 'User status updated successfully'], 200);
+    }
+
+    /**
+     * Change the password of a user.
+     */
+    public function changePassword(Request $request, $userId)
+    {
+        $authenticatedUser = $request->user();
+
+        // Validate the input
+        $request->validate([
+            'password' => 'required|string|min:6',
+        ]);
+
+        $user = User::find($userId);
+
+        // Ensure the user exists
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        // Check if the authenticated user is the target user or in the hierarchy
+        $isInHierarchy = UserHierarchy::where('ancestorId', $authenticatedUser->id)
+            ->where('descendantId', $user->id)
+            ->exists();
+
+        if ($authenticatedUser->id !== $user->id && !$isInHierarchy) {
+            return response()->json(['message' => 'Unauthorized: Cannot change password for this user'], 403);
+        }
+
+        // Update the password
+        $user->update(['password' => bcrypt($request->password)]);
+
+        return response()->json(['message' => 'Password updated successfully'], 200);
+    }
+
+    /**
+     * Retrieve the hierarchy tree for the authenticated user.
+     */
+    public function getHierarchyTree(Request $request)
+    {
+        $authenticatedUser = $request->user();
+
+        // Recursive function to build the hierarchy tree
+        function buildTree($userId)
+        {
+            // Get all direct descendants of the user
+            $children = User::where('parentId', $userId)->get();
+
+            // Recursively build the tree for each child
+            $tree = [];
+            foreach ($children as $child) {
+                $tree[] = [
+                    'id' => $child->id,
+                    'username' => $child->username,
+                    'role' => $child->role->name,
+                    'children' => buildTree($child->id), // Recursive call for children
+                ];
+            }
+
+            return $tree;
+        }
+
+        // Build the hierarchy tree starting from the authenticated user
+        $hierarchyTree = [
+            'id' => $authenticatedUser->id,
+            'username' => $authenticatedUser->username,
+            'role' => $authenticatedUser->role->name,
+            'children' => buildTree($authenticatedUser->id),
+        ];
+
+        return response()->json($hierarchyTree, 200);
     }
 }
