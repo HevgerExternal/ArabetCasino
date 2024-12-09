@@ -49,4 +49,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(User::class, 'parentId');
     }
+
+    /**
+     * Get the settings associated with the user.
+     */
+    public function settings()
+    {
+        return $this->hasOne(UserSettings::class, 'user_id');
+    }
 }

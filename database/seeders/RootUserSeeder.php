@@ -12,6 +12,11 @@ class RootUserSeeder extends Seeder
 {
     public function run(): void
     {
+        // Check if the Root user already exists
+        if (User::where('username', 'root')->exists()) {
+            return; // Exit the seeder if the Root user already exists
+        }
+
         // Get the Root role
         $rootRole = Role::where('name', 'Root')->first();
 

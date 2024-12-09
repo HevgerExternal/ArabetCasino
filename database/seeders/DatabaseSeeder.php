@@ -18,5 +18,8 @@ class DatabaseSeeder extends Seeder
 
         // Run the UserSeeder next to create the root user
         $this->call(RootUserSeeder::class);
+
+        // Run the UserSettingsSeeder to create settings if not created before
+        $this->call(UserSettingsSeeder::class);
     }
 }

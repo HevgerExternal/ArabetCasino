@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\UserSettingsController;
 use App\Http\Controllers\TransactionController;
 
 // Auth
@@ -22,6 +23,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/users/role/{roleId}', [UserController::class, 'getUsersByRole']);
     Route::get('/users/search', [UserController::class, 'searchUsers']);
     Route::get('/users/hierarchy', [UserController::class, 'getHierarchyTree']);
+
+    // User settings
+    Route::get('/me/settings', [UserSettingsController::class, 'getSettings']);
+    Route::patch('/me/settings', [UserSettingsController::class, 'updateSettings']);
+    Route::get('/me/roles', [UserSettingsController::class, 'getRolesUnderUser']);
 
     // Transaction
     Route::post('/transactions', [TransactionController::class, 'createTransaction']);
