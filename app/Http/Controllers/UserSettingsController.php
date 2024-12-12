@@ -37,8 +37,8 @@ class UserSettingsController extends Controller
         return response()->json(['message' => 'Settings updated successfully', 'settings' => $user->settings], 200);
     }
 
-     /**
-     * Get roles under the logged-in user's role.
+    /**
+     * Get roles under the logged-in user's role, including parent role details.
      */
     public function getRolesUnderUser(Request $request)
     {
@@ -49,7 +49,19 @@ class UserSettingsController extends Controller
 
         // Fetch roles below the current user's role
         $rolesUnder = Role::where('id', '>', $currentRoleId)
-            ->get(['id as roleId', 'name as roleName']);
+            ->with('parent:id,name') // Include the parent role (only id and name)
+            ->get(['id as roleId', 'name as roleName', 'parent_id']);
+
+        // Add requiresParent property and format parent role
+        $rolesUnder = $rolesUnder->map(function ($role, $index) {
+            $role->requiresParent = $index !== 0;
+            $role->parentRole = $role->parent ? [
+                'roleId' => $role->parent->id,
+                'roleName' => $role->parent->name,
+            ] : null;
+            unset($role->parent);
+            return $role;
+        });
 
         return response()->json($rolesUnder, 200);
     }

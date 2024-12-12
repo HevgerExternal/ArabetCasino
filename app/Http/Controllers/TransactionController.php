@@ -77,55 +77,6 @@ class TransactionController extends Controller
     }
 
     /**
-     * Get all transactions with optional filters.
-     */
-    public function getTransactions(Request $request)
-    {
-        $authenticatedUser = $request->user();
-
-        // Validate filters
-        $filters = $request->validate([
-            'from_date' => 'nullable|date',
-            'to_date' => 'nullable|date',
-            'from_role' => 'nullable|string',
-            'to_role' => 'nullable|string',
-            'type' => 'nullable|in:deposit,withdraw', // Add type filter
-        ]);
-
-        // Get descendant IDs from hierarchy
-        $userIds = UserHierarchy::where('ancestorId', $authenticatedUser->id)->pluck('descendantId');
-
-        // Apply filters
-        $query = Transaction::whereIn('fromUserId', $userIds)
-            ->orWhereIn('toUserId', $userIds);
-
-        if (!empty($filters['from_date'])) {
-            $query->whereDate('date', '>=', $filters['from_date']);
-        }
-        if (!empty($filters['to_date'])) {
-            $query->whereDate('date', '<=', $filters['to_date']);
-        }
-        if (!empty($filters['from_role'])) {
-            $query->where('fromRole', $filters['from_role']);
-        }
-        if (!empty($filters['to_role'])) {
-            $query->where('toRole', $filters['to_role']);
-        }
-        if (!empty($filters['type'])) {
-            $query->where('type', $filters['type']);
-        }
-
-        $transactions = $query->paginate(10);
-
-        return response()->json([
-            'current_page' => $transactions->currentPage(),
-            'per_page' => $transactions->perPage(),
-            'total' => $transactions->total(),
-            'data' => $transactions->items(),
-        ], 200);
-    }
-
-    /**
      * Get transactions for a specific user.
      */
     public function getUserTransactions(Request $request, $userId)
@@ -137,6 +88,7 @@ class TransactionController extends Controller
             'from_date' => 'nullable|date',
             'to_date' => 'nullable|date',
             'type' => 'nullable|in:deposit,withdraw', // Add type filter
+            'per_page' => 'nullable|integer|min:1|max:100', // Add validation for per_page
         ]);
 
         // Ensure the target user is in the hierarchy or is the authenticated user
@@ -164,7 +116,16 @@ class TransactionController extends Controller
             $query->where('type', $filters['type']);
         }
 
-        $transactions = $query->paginate(10);
+        // Order by created_at in descending order (latest first)
+        $query->orderBy('created_at', 'desc');
+
+        // Get per_page value from the request, default to 10
+        $perPage = $filters['per_page'] ?? 10;
+
+        // Validate per_page parameter to prevent excessive data load
+        $perPage = is_numeric($perPage) && $perPage > 0 ? (int)$perPage : 10;
+
+        $transactions = $query->paginate($perPage);
 
         return response()->json([
             'current_page' => $transactions->currentPage(),
@@ -173,4 +134,65 @@ class TransactionController extends Controller
             'data' => $transactions->items(),
         ], 200);
     }
+
+    /**
+     * Get all transactions with optional filters.
+     */
+    public function getTransactions(Request $request)
+    {
+        $authenticatedUser = $request->user();
+
+        // Validate filters
+        $filters = $request->validate([
+            'from_date' => 'nullable|date',
+            'to_date' => 'nullable|date',
+            'from_role' => 'nullable|string',
+            'to_role' => 'nullable|string',
+            'type' => 'nullable|in:deposit,withdraw', // Add type filter
+            'per_page' => 'nullable|integer|min:1|max:100', // Add validation for per_page
+        ]);
+
+        // Start the query
+        $query = Transaction::query();
+
+        if (!empty($filters['from_date'])) {
+            $query->whereDate('date', '>=', $filters['from_date']);
+        }
+
+        if (!empty($filters['to_date'])) {
+            $query->whereDate('date', '<=', $filters['to_date']);
+        }
+
+        if (!empty($filters['from_role'])) {
+            $query->where('fromRole', $filters['from_role']);
+        }
+
+        if (!empty($filters['to_role'])) {
+            $query->where('toRole', $filters['to_role']);
+        }
+
+        if (!empty($filters['type'])) {
+            $query->where('type', $filters['type']);
+        }
+
+        // Order by created_at in descending order (latest first)
+        $query->orderBy('created_at', 'desc');
+
+        // Get per_page value from the request, default to 10
+        $perPage = $filters['per_page'] ?? 10;
+
+        // Validate per_page parameter to prevent excessive data load
+        $perPage = is_numeric($perPage) && $perPage > 0 ? (int)$perPage : 10;
+
+        $transactions = $query->paginate($perPage);
+
+        // Return response
+        return response()->json([
+            'current_page' => $transactions->currentPage(),
+            'per_page' => $transactions->perPage(),
+            'total' => $transactions->total(),
+            'data' => $transactions->items(),
+        ], 200);
+    }
+
 }

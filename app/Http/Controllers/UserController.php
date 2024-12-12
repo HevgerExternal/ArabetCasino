@@ -83,10 +83,9 @@ class UserController extends Controller
 
         return response()->json(['message' => 'User created successfully', 'user' => $newUser], 201);
     }
-
-
+    
     /**
-     * Get users by role with pagination.
+     * Get users by role with pagination, optionally filtering by date range and username.
      */
     public function getUsersByRole(Request $request, $roleId)
     {
@@ -98,18 +97,46 @@ class UserController extends Controller
             return response()->json(['message' => 'Invalid role ID'], 404);
         }
 
+        // Validate optional parameters
+        $fromDate = $request->query('from');
+        $toDate = $request->query('to');
+        $search = $request->query('search');
+        $perPage = $request->query('per_page', 10); // Default to 10 if not provided
+
+        if (($fromDate && !strtotime($fromDate)) || ($toDate && !strtotime($toDate))) {
+            return response()->json(['message' => 'Invalid date format for "from" or "to" parameter'], 400);
+        }
+
         // Get users in the role within the authenticated user's hierarchy
         $userIds = UserHierarchy::where('ancestorId', $authenticatedUser->id)->pluck('descendantId');
-        $users = User::whereIn('id', $userIds)
-            ->where('roleId', $roleId)
-            ->paginate(10);
+        $query = User::whereIn('id', $userIds)
+            ->where('roleId', $roleId);
 
-            return response()->json([
-                'current_page' => $users->currentPage(),
-                'per_page' => $users->perPage(),
-                'total' => $users->total(),
-                'data' => $users->items(),
-            ], 200);
+        // Apply date filters if provided
+        if ($fromDate) {
+            $query->where('created_at', '>=', $fromDate);
+        }
+        if ($toDate) {
+            $query->where('created_at', '<=', $toDate);
+        }
+
+        // Apply search filter if provided
+        if ($search) {
+            $query->where('username', 'like', '%' . $search . '%');
+        }
+
+        // Validate per_page parameter to prevent excessive data load
+        $perPage = is_numeric($perPage) && $perPage > 0 ? (int)$perPage : 10;
+
+        // Paginate the results using per_page
+        $users = $query->paginate($perPage);
+
+        return response()->json([
+            'current_page' => $users->currentPage(),
+            'per_page' => $users->perPage(),
+            'total' => $users->total(),
+            'data' => $users->items(),
+        ], 200);
     }
 
     /**
@@ -257,5 +284,41 @@ class UserController extends Controller
         ];
 
         return response()->json($hierarchyTree, 200);
+    }
+
+    /**
+     * Get a user by ID if they are within the authenticated user's hierarchy.
+     */
+    public function getUserById(Request $request, $userId)
+    {
+        $authenticatedUser = $request->user();
+
+        // Ensure the target user is in the hierarchy
+        $isInHierarchy = UserHierarchy::where('ancestorId', $authenticatedUser->id)
+            ->where('descendantId', $userId)
+            ->exists();
+
+        if (!$isInHierarchy) {
+            return response()->json(['message' => 'Unauthorized: User is not in your hierarchy'], 403);
+        }
+
+        // Find the user
+        $user = User::find($userId);
+
+        // Ensure the user exists
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        // Return the user details
+        return response()->json([
+            'id' => $user->id,
+            'username' => $user->username,
+            'role' => $user->role->name,
+            'parentId' => $user->parentId,
+            'status' => $user->status,
+            'created_at' => $user->created_at,
+            'updated_at' => $user->updated_at,
+        ], 200);
     }
 }
