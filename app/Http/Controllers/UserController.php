@@ -327,6 +327,7 @@ class UserController extends Controller
             'role' => $user->role->name,
             'parentId' => $user->parentId,
             'status' => $user->status,
+            'balance' => $user->balance,
             'created_at' => $user->created_at,
             'updated_at' => $user->updated_at,
         ], 200);
