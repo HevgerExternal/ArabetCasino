@@ -77,7 +77,7 @@ class TransactionController extends Controller
     }
 
     /**
-     * Get transactions for a specific user.
+     * Get transactions for a specific user with deposit/withdrawal summary.
      */
     public function getUserTransactions(Request $request, $userId)
     {
@@ -135,13 +135,31 @@ class TransactionController extends Controller
         // Validate per_page parameter to prevent excessive data load
         $perPage = is_numeric($perPage) && $perPage > 0 ? (int)$perPage : 10;
 
+        // Get transactions with pagination
         $transactions = $query->paginate($perPage);
 
+        // Calculate sum of deposits and withdrawals
+        $depositSum = Transaction::where('toUserId', $userId)
+            ->where('type', 'deposit')
+            ->sum('amount');
+
+        $withdrawalSum = Transaction::where('fromUserId', $userId)
+            ->where('type', 'withdraw')
+            ->sum('amount');
+
+        $netAmount = $depositSum - $withdrawalSum;
+
+        // Return response with transaction summary
         return response()->json([
             'current_page' => $transactions->currentPage(),
             'per_page' => $transactions->perPage(),
             'total' => $transactions->total(),
             'data' => $transactions->items(),
+            'summary' => [
+                'total_deposit' => $depositSum,
+                'total_withdrawal' => $withdrawalSum,
+                'net_amount' => $netAmount,
+            ],
         ], 200);
     }
 
