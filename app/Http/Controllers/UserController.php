@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Role;
 use App\Models\UserHierarchy;
+use App\Models\UserSettings;
 
 class UserController extends Controller
 {
@@ -81,6 +82,13 @@ class UserController extends Controller
             }
         }
 
+        // Create default user settings for the new user
+        UserSettings::create([
+            'user_id' => $newUser->id,
+            'numberFormat' => 'Large',
+            'useThousandSeparator' => true,
+        ]);
+
         return response()->json(['message' => 'User created successfully', 'user' => $newUser], 201);
     }
     
@@ -134,7 +142,11 @@ class UserController extends Controller
         // Add parent username and subnet balance to each user in the response
         $users->getCollection()->transform(function ($user) {
             $descendantIds = UserHierarchy::where('ancestorId', $user->id)->pluck('descendantId');
-            $subnetBalance = User::whereIn('id', $descendantIds)->sum('balance');
+
+            // Exclude the user's own balance
+            $subnetBalance = User::whereIn('id', $descendantIds)
+                ->where('id', '!=', $user->id) // Exclude the user's own ID
+                ->sum('balance');
 
             $user->subnet = $subnetBalance;
             $user->parentUsername = $user->parent ? $user->parent->username : null;
