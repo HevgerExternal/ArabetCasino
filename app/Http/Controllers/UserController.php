@@ -98,8 +98,8 @@ class UserController extends Controller
         }
 
         // Validate optional parameters
-        $fromDate = $request->query('from');
-        $toDate = $request->query('to');
+        $fromDate = $request->query('from_date');
+        $toDate = $request->query('to_date');
         $search = $request->query('search');
         $perPage = $request->query('per_page', 10); // Default to 10 if not provided
 

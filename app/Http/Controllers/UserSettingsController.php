@@ -44,17 +44,31 @@ class UserSettingsController extends Controller
     {
         $authenticatedUser = $request->user();
 
+        // Validate optional parameter
+        $includeSelf = filter_var($request->query('include_self', false), FILTER_VALIDATE_BOOLEAN);
+
         // Get the authenticated user's role
         $currentRoleId = $authenticatedUser->roleId;
 
-        // Fetch roles below the current user's role
-        $rolesUnder = Role::where('id', '>', $currentRoleId)
+        // Build the query
+        $rolesUnderQuery = Role::query()
             ->with('parent:id,name') // Include the parent role (only id and name)
-            ->get(['id as roleId', 'name as roleName', 'parent_id']);
+            ->select(['id as roleId', 'name as roleName', 'parent_id']);
+
+        // Adjust the query based on include_self
+        if ($includeSelf) {
+            $rolesUnderQuery->where('id', '>=', $currentRoleId); // Include current role
+        } else {
+            $rolesUnderQuery->where('id', '>', $currentRoleId); // Exclude current role
+        }
+
+        // Fetch roles
+        $rolesUnder = $rolesUnderQuery->get();
 
         // Add requiresParent property and format parent role
-        $rolesUnder = $rolesUnder->map(function ($role, $index) {
-            $role->requiresParent = $index !== 0;
+        $rolesUnder = $rolesUnder->map(function ($role, $index) use ($includeSelf) {
+            // Set requiresParent logic: false for the first role, true for others
+            $role->requiresParent = $index === 0 ? false : true;
             $role->parentRole = $role->parent ? [
                 'roleId' => $role->parent->id,
                 'roleName' => $role->parent->name,
