@@ -103,17 +103,27 @@ class TransactionController extends Controller
         }
 
         // Apply filters
-        $query = Transaction::where('fromUserId', $userId)
-            ->orWhere('toUserId', $userId);
+        $query = Transaction::query();
+
+        if (!empty($filters['type'])) {
+            $query->where(function ($subQuery) use ($userId, $filters) {
+                $subQuery->where('fromUserId', $userId)
+                    ->where('type', $filters['type'])
+                    ->orWhere(function ($nestedQuery) use ($userId, $filters) {
+                        $nestedQuery->where('toUserId', $userId)
+                            ->where('type', $filters['type']);
+                    });
+            });
+        } else {
+            $query->where('fromUserId', $userId)
+                ->orWhere('toUserId', $userId);
+        }
 
         if (!empty($filters['from_date'])) {
             $query->whereDate('date', '>=', $filters['from_date']);
         }
         if (!empty($filters['to_date'])) {
             $query->whereDate('date', '<=', $filters['to_date']);
-        }
-        if (!empty($filters['type'])) {
-            $query->where('type', $filters['type']);
         }
 
         // Order by created_at in descending order (latest first)
@@ -134,6 +144,7 @@ class TransactionController extends Controller
             'data' => $transactions->items(),
         ], 200);
     }
+
 
     /**
      * Get all transactions with optional filters.
