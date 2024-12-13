@@ -131,6 +131,12 @@ class UserController extends Controller
         // Paginate the results using per_page
         $users = $query->paginate($perPage);
 
+         // Add parent username to each user in the response
+        $users->getCollection()->transform(function ($user) {
+            $user->parentUsername = $user->parent ? $user->parent->username : null;
+            return $user;
+        });
+
         return response()->json([
             'current_page' => $users->currentPage(),
             'per_page' => $users->perPage(),
