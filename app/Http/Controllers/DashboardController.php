@@ -9,23 +9,22 @@ use App\Models\SiteSettings;
 
 class DashboardController extends Controller
 {
-    /**
-     * Get dashboard statistics.
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function getStatistics(Request $request)
     {
         $authenticatedUser = $request->user();
         $siteSettings = SiteSettings::first();
-
-        // Get all users in the hierarchy including the authenticated user
-        $userIds = $this->getUserHierarchyIds($authenticatedUser);
-
+    
+        // Get all users in the hierarchy, including the authenticated user for balance
+        $userIdsForBalance = $this->getUserHierarchyIds($authenticatedUser, true);
+    
+        // Get all users in the hierarchy, excluding the authenticated user for non-player and player counts
+        $userIdsWithoutSelf = $this->getUserHierarchyIds($authenticatedUser, false);
+    
         $data = [
-            'total_balance' => $this->calculateTotalBalance($userIds),
-            'total_players' => $this->countPlayers($userIds),
-            'total_users' => $this->countNonPlayers($userIds),
+            'total_balance' => $this->calculateTotalBalance($userIdsForBalance),
+            'total_players' => $this->countPlayers($userIdsWithoutSelf),
+            'total_users' => $this->countNonPlayers($userIdsWithoutSelf),
+            'total_player_balance' => $this->calculatePlayerBalance($userIdsWithoutSelf),
             'total_bet' => 0, // Placeholder for future implementation
             'total_win' => 0, // Placeholder for future implementation
             'total_ggr' => 0, // Placeholder for future implementation
@@ -33,29 +32,37 @@ class DashboardController extends Controller
         ];
         return response()->json($data);
     }
-
+    
+    
     /**
-     * Get all user IDs in the hierarchy, including the authenticated user.
+     * Get all user IDs in the hierarchy, optionally including the authenticated user.
      *
      * @param \App\Models\User $user
+     * @param bool $includeSelf
      * @return \Illuminate\Support\Collection
      */
-    private function getUserHierarchyIds($user)
+    private function getUserHierarchyIds($user, $includeSelf = true)
     {
         $userIds = UserHierarchy::where('ancestorId', $user->id)->pluck('descendantId');
-        $userIds->push($user->id);
+        if ($includeSelf) {
+            $userIds->push($user->id);
+        }
         return $userIds;
     }
 
     /**
-     * Calculate the total balance of all users in the hierarchy.
+     * Get the total balance of players in the hierarchy.
      *
      * @param \Illuminate\Support\Collection $userIds
      * @return float
      */
-    private function calculateTotalBalance($userIds)
+    private function calculatePlayerBalance($userIds)
     {
-        return User::whereIn('id', $userIds)->sum('balance');
+        return User::whereIn('id', $userIds)
+            ->whereHas('role', function ($query) {
+                $query->where('name', '=', 'Player');
+            })
+            ->sum('balance');
     }
 
     /**
@@ -72,7 +79,7 @@ class DashboardController extends Controller
             })
             ->count();
     }
-
+    
     /**
      * Count the number of players in the hierarchy.
      *
@@ -87,4 +94,15 @@ class DashboardController extends Controller
             })
             ->count();
     }
+    
+    /**
+     * Calculate the total balance of all users in the hierarchy.
+     *
+     * @param \Illuminate\Support\Collection $userIds
+     * @return float
+     */
+    private function calculateTotalBalance($userIds)
+    {
+        return User::whereIn('id', $userIds)->sum('balance');
+    }    
 }
