@@ -131,8 +131,12 @@ class UserController extends Controller
         // Paginate the results using per_page
         $users = $query->paginate($perPage);
 
-         // Add parent username to each user in the response
+        // Add parent username and subnet balance to each user in the response
         $users->getCollection()->transform(function ($user) {
+            $descendantIds = UserHierarchy::where('ancestorId', $user->id)->pluck('descendantId');
+            $subnetBalance = User::whereIn('id', $descendantIds)->sum('balance');
+
+            $user->subnet = $subnetBalance;
             $user->parentUsername = $user->parent ? $user->parent->username : null;
             return $user;
         });
