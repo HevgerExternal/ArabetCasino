@@ -175,8 +175,8 @@ class TransactionController extends Controller
             ],
         ], 200);
     }
-
-     /**
+    
+    /**
      * Get all transactions with optional filters.
      */
     public function getTransactions(Request $request)
@@ -195,8 +195,17 @@ class TransactionController extends Controller
             'per_page' => 'nullable|integer|min:1|max:100',
         ]);
 
-        // Start the query
-        $query = Transaction::query();
+        // Get the list of user IDs in the authenticated user's hierarchy
+        $userIdsInHierarchy = UserHierarchy::where('ancestorId', $authenticatedUser->id)
+            ->pluck('descendantId')
+            ->toArray();
+
+        // Ensure the authenticated user can only view transactions for users within their hierarchy
+        $query = Transaction::query()
+            ->where(function ($query) use ($userIdsInHierarchy) {
+                $query->whereIn('fromUserId', $userIdsInHierarchy)
+                    ->orWhereIn('toUserId', $userIdsInHierarchy);
+            });
 
         if (!empty($filters['from_date'])) {
             $query->whereDate('date', '>=', $filters['from_date']);
@@ -234,13 +243,37 @@ class TransactionController extends Controller
 
         $transactions = $query->paginate($perPage);
 
+        // Log the SQL query before execution
+        logger()->info('Query SQL:', [
+            'sql' => $query->toSql(),
+            'bindings' => $query->getBindings()
+        ]);
+
         // Initialize summary as null
         $summary = null;
 
-        // Calculate summary only if there are matching transactions
-        if (!empty($filters['from_user']) && !empty($filters['to_user']) && $transactions->total() > 0) {
-            $depositSum = Transaction::where('fromUserId', $filters['from_user'])
-                ->where('toUserId', $filters['to_user']) // Ensure matching to_user
+        // Calculate summary if any relevant filters are provided
+        if (
+            (!empty($filters['from_user']) || !empty($filters['to_user']) || !empty($filters['from_role']) || !empty($filters['to_role'])) &&
+            $transactions->total() > 0
+        ) {
+            $depositSum = Transaction::query()
+                ->where(function ($query) use ($userIdsInHierarchy) {
+                    $query->whereIn('fromUserId', $userIdsInHierarchy)
+                        ->orWhereIn('toUserId', $userIdsInHierarchy);
+                })
+                ->when(!empty($filters['from_user']), function ($query) use ($filters) {
+                    $query->where('fromUserId', $filters['from_user']);
+                })
+                ->when(!empty($filters['to_user']), function ($query) use ($filters) {
+                    $query->where('toUserId', $filters['to_user']);
+                })
+                ->when(!empty($filters['from_role']), function ($query) use ($filters) {
+                    $query->where('fromRole', $filters['from_role']);
+                })
+                ->when(!empty($filters['to_role']), function ($query) use ($filters) {
+                    $query->where('toRole', $filters['to_role']);
+                })
                 ->where('type', 'deposit')
                 ->when(!empty($filters['from_date']), function ($query) use ($filters) {
                     $query->whereDate('date', '>=', $filters['from_date']);
@@ -250,8 +283,23 @@ class TransactionController extends Controller
                 })
                 ->sum('amount');
 
-            $withdrawalSum = Transaction::where('fromUserId', $filters['from_user']) // Ensure matching from_user
-                ->where('toUserId', $filters['to_user'])
+            $withdrawalSum = Transaction::query()
+                ->where(function ($query) use ($userIdsInHierarchy) {
+                    $query->whereIn('fromUserId', $userIdsInHierarchy)
+                        ->orWhereIn('toUserId', $userIdsInHierarchy);
+                })
+                ->when(!empty($filters['from_user']), function ($query) use ($filters) {
+                    $query->where('fromUserId', $filters['from_user']);
+                })
+                ->when(!empty($filters['to_user']), function ($query) use ($filters) {
+                    $query->where('toUserId', $filters['to_user']);
+                })
+                ->when(!empty($filters['from_role']), function ($query) use ($filters) {
+                    $query->where('fromRole', $filters['from_role']);
+                })
+                ->when(!empty($filters['to_role']), function ($query) use ($filters) {
+                    $query->where('toRole', $filters['to_role']);
+                })
                 ->where('type', 'withdraw')
                 ->when(!empty($filters['from_date']), function ($query) use ($filters) {
                     $query->whereDate('date', '>=', $filters['from_date']);
