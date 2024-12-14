@@ -118,7 +118,8 @@ class UserController extends Controller
         // Get users in the role within the authenticated user's hierarchy
         $userIds = UserHierarchy::where('ancestorId', $authenticatedUser->id)->pluck('descendantId');
         $query = User::whereIn('id', $userIds)
-            ->where('roleId', $roleId);
+            ->where('roleId', $roleId)
+            ->with('role'); // Eager load the role relationship
 
         // Apply date filters if provided
         if ($fromDate) {
@@ -139,7 +140,7 @@ class UserController extends Controller
         // Paginate the results using per_page
         $users = $query->paginate($perPage);
 
-        // Add parent username and subnet balance to each user in the response
+        // Add parent username, subnet balance, and roleName to each user in the response
         $users->getCollection()->transform(function ($user) {
             $descendantIds = UserHierarchy::where('ancestorId', $user->id)->pluck('descendantId');
 
@@ -150,6 +151,7 @@ class UserController extends Controller
 
             $user->subnet = $subnetBalance;
             $user->parentUsername = $user->parent ? $user->parent->username : null;
+            $user->roleName = $user->role ? $user->role->name : null; // Add roleName field
             return $user;
         });
 
