@@ -93,7 +93,7 @@ class UserController extends Controller
     }
     
     /**
-     * Get users by role with pagination, optionally filtering by date range and username.
+     * Get users by role with pagination, optionally filtering by date range, username, and parent ID.
      */
     public function getUsersByRole(Request $request, $roleId)
     {
@@ -109,6 +109,7 @@ class UserController extends Controller
         $fromDate = $request->query('from_date');
         $toDate = $request->query('to_date');
         $search = $request->query('search');
+        $parentId = $request->query('parent_id'); // New filter
         $perPage = $request->query('per_page', 10); // Default to 10 if not provided
 
         if (($fromDate && !strtotime($fromDate)) || ($toDate && !strtotime($toDate))) {
@@ -120,6 +121,11 @@ class UserController extends Controller
         $query = User::whereIn('id', $userIds)
             ->where('roleId', $roleId)
             ->with('role'); // Eager load the role relationship
+
+        // Apply parentId filter if provided
+        if ($parentId) {
+            $query->where('parentId', $parentId);
+        }
 
         // Apply date filters if provided
         if ($fromDate) {
