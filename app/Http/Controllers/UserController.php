@@ -309,27 +309,32 @@ class UserController extends Controller
     }
 
     /**
-     * Get a user by ID if they are within the authenticated user's hierarchy.
+     * Get a user by ID if they are within the authenticated user's hierarchy or the authenticated user themselves.
      */
     public function getUserById(Request $request, $userId)
     {
         $authenticatedUser = $request->user();
 
-        // Ensure the target user is in the hierarchy
-        $isInHierarchy = UserHierarchy::where('ancestorId', $authenticatedUser->id)
-            ->where('descendantId', $userId)
-            ->exists();
+        // Allow if the user is requesting their own details
+        if ($authenticatedUser->id === (int)$userId) {
+            $user = $authenticatedUser;
+        } else {
+            // Ensure the target user is in the hierarchy
+            $isInHierarchy = UserHierarchy::where('ancestorId', $authenticatedUser->id)
+                ->where('descendantId', $userId)
+                ->exists();
 
-        if (!$isInHierarchy) {
-            return response()->json(['message' => 'Unauthorized: User is not in your hierarchy'], 403);
-        }
+            if (!$isInHierarchy) {
+                return response()->json(['message' => 'Unauthorized: User is not in your hierarchy'], 403);
+            }
 
-        // Find the user
-        $user = User::find($userId);
+            // Find the user
+            $user = User::find($userId);
 
-        // Ensure the user exists
-        if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
+            // Ensure the user exists
+            if (!$user) {
+                return response()->json(['message' => 'User not found'], 404);
+            }
         }
 
         // Return the user details
@@ -344,4 +349,5 @@ class UserController extends Controller
             'updated_at' => $user->updated_at,
         ], 200);
     }
+
 }
