@@ -24,5 +24,9 @@ class DatabaseSeeder extends Seeder
 
         // Run the SiteSettingsSeeder to set site settings
         $this->call(SiteSettingsSeeder::class);
+
+        // Run the seeders for providers
+        $this->call(ExternalProviderSeeder::class);
+        $this->call(ProviderSeeder::class);
     }
 }

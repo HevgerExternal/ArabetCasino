@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use App\Models\SiteSettings;
 use App\Models\User;
+use App\Models\Transaction;
 
 class PlayerController extends Controller
 {
@@ -65,5 +66,44 @@ class PlayerController extends Controller
             'balance' => $player->balance, 
             'currency' => $siteSettings ? $siteSettings->currency : null,
         ]);
+    }
+
+    
+   /**
+     * Get transactions for the authenticated player with filters.
+     */
+    public function transactions(Request $request)
+    {
+        $authenticatedUser = $request->user();
+
+        // Validate filters
+        $filters = $request->validate([
+            'from_date' => 'nullable|date',
+            'to_date' => 'nullable|date',
+            'type' => 'nullable|in:deposit,withdraw',
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+
+        // Apply filters
+        $query = Transaction::query()
+            ->where(function ($subQuery) use ($authenticatedUser) {
+                $subQuery->where('fromUserId', $authenticatedUser->id)
+                        ->orWhere('toUserId', $authenticatedUser->id);
+            })
+            ->when(!empty($filters['type']), fn($q) => $q->where('type', $filters['type']))
+            ->when(!empty($filters['from_date']), fn($q) => $q->whereDate('date', '>=', $filters['from_date']))
+            ->when(!empty($filters['to_date']), fn($q) => $q->whereDate('date', '<=', $filters['to_date']))
+            ->orderBy('created_at', 'desc');
+
+        // Get paginated transactions
+        $transactions = $query->paginate($filters['per_page'] ?? 10);
+
+        // Return response
+        return response()->json([
+            'current_page' => $transactions->currentPage(),
+            'per_page' => $transactions->perPage(),
+            'total' => $transactions->total(),
+            'data' => $transactions->items(),
+        ], 200);
     }
 }

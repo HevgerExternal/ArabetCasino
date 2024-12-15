@@ -8,6 +8,7 @@ use App\Http\Controllers\UserSettingsController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PlayerController;
+use App\Http\Controllers\GamesController;
 
 // Public Routes (Unauthenticated)
 Route::prefix('auth')->group(function () {
@@ -58,5 +59,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('token.type:player')->prefix('player')->group(function () {
         Route::get('/me', [PlayerController::class, 'me'])->name('player.me');
+        Route::get('/transactions', [PlayerController::class, 'transactions'])->name('player.transactions');
     });
+});
+
+// Games
+Route::prefix('games')->group(function () {
+    Route::get('/providers', [GamesController::class, 'getProviders'])->name('games.provider');
 });
