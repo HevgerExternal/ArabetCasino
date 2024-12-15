@@ -68,4 +68,21 @@ class LvlGameApiService
             'message' => $response['message'] ?? 'Failed to retrieve providers.',
         ];
     }
+
+    /**
+     * Fetch all games from the external API.
+     *
+     * @return array
+     */
+    public function getGames(): array
+    {
+        $response = $this->sendRequest('getGamesList');
+
+        if ($response['status'] === 'success') {
+            $content = $response['content'] ?? [];
+            return $content;
+        }
+
+        throw new \Exception('Failed to fetch games from the API: ' . ($response['message'] ?? 'Unknown error'));
+    }
 }

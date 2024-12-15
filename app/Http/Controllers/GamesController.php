@@ -34,7 +34,7 @@ class GamesController extends Controller
                 $provider = Provider::where('slug', $providerSlug)
                     ->where('type', $type) // Apply the type filter
                     ->first();
-                
+
                 if ($provider) {
                     $providerDtos[] = new ProviderDto(
                         $provider->slug,
@@ -60,5 +60,42 @@ class GamesController extends Controller
             ], 500);
         }
     }
-   
+
+    /**
+     * Get games, optionally filtered by provider.
+     */
+    public function getGames(Request $request)
+    {
+        try {
+            // Get the provider slug from the request
+            $providerSlug = $request->query('provider');
+
+            // Fetch games from the external API
+            $games = $this->lvlGameApiService->getGames();
+
+            // Filter games by provider if specified
+            if ($providerSlug) {
+                if (isset($games[$providerSlug])) {
+                    $games = [$providerSlug => $games[$providerSlug]];
+                } else {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Provider not found.',
+                    ], 404);
+                }
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $games,
+            ], 200);
+        } catch (\Exception $e) {
+            \Log::error('Error fetching games:', ['exception' => $e]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to fetch games.',
+            ], 500);
+        }
+    }
 }

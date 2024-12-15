@@ -66,4 +66,5 @@ Route::middleware('auth:sanctum')->group(function () {
 // Games
 Route::prefix('games')->group(function () {
     Route::get('/providers', [GamesController::class, 'getProviders'])->name('games.provider');
+    Route::get('/games', [GamesController::class, 'getGames'])->name('games.games');
 });
