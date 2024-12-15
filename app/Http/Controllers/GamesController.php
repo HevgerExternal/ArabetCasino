@@ -22,13 +22,18 @@ class GamesController extends Controller
     public function getProviders(Request $request)
     {
         try {
+            // Get the type filter from the request, default to 'slot'
+            $type = $request->query('type', 'slot');
+
             // Get providers from the API service
             $providers = $this->lvlGameApiService->getProviders();
-    
-            // Map providers to DTOs
+
+            // Map providers to DTOs with type filter
             $providerDtos = [];
             foreach ($providers as $providerSlug) {
-                $provider = Provider::where('slug', $providerSlug)->first();
+                $provider = Provider::where('slug', $providerSlug)
+                    ->where('type', $type) // Apply the type filter
+                    ->first();
                 
                 if ($provider) {
                     $providerDtos[] = new ProviderDto(
@@ -40,10 +45,10 @@ class GamesController extends Controller
                     );
                 }
             }
-    
+
             // Transform DTOs into array format for response
             $response = array_map(fn($dto) => $dto->toArray(), $providerDtos);
-    
+
             return response()->json([
                 'status' => 'success',
                 'data' => $response,
@@ -54,5 +59,6 @@ class GamesController extends Controller
                 'message' => 'Failed to fetch providers.',
             ], 500);
         }
-    }    
+    }
+   
 }
