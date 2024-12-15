@@ -61,6 +61,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [PlayerController::class, 'me'])->name('player.me');
         Route::get('/transactions', [PlayerController::class, 'transactions'])->name('player.transactions');
     });
+    Route::middleware('token.type:player')->prefix('games')->group(function () {
+        Route::post(uri: '/open', action: [GamesController::class, 'openGame'])->name('games.open');
+    });
 });
 
 // Games

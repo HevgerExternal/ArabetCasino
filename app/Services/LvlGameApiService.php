@@ -85,4 +85,41 @@ class LvlGameApiService
 
         throw new \Exception('Failed to fetch games from the API: ' . ($response['message'] ?? 'Unknown error'));
     }
+
+      /**
+     * Open a game using the API.
+     *
+     * @param array $payload
+     * @return array
+     */
+    public function openGame(array $payload): array
+    {
+        try {
+            $url = $this->apiUrl . 'openGame/';
+
+            // Send the request
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json',
+            ])->post($url, $payload);
+            
+            Log::error($response);
+
+            // Handle response
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            return [
+                'status' => 'error',
+                'message' => 'HTTP Error: ' . $response->status(),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Error in Game API Service', ['exception' => $e]);
+
+            return [
+                'status' => 'error',
+                'message' => 'An exception occurred: ' . $e->getMessage(),
+            ];
+        }
+    }
 }
