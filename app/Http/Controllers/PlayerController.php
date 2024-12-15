@@ -4,13 +4,14 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use App\Models\User;
 use App\Models\SiteSettings;
+use App\Models\User;
 
-class AuthController extends Controller
+class PlayerController extends Controller
 {
+
     /**
-     * Login a non-player user and return a token.
+     * Login a player user and return a token.
      */
     public function login(Request $request)
     {
@@ -33,13 +34,13 @@ class AuthController extends Controller
             return response()->json(['message' => 'User is blocked'], 403);
         }
 
-        // Restrict login to non-players only
-        if ($user->role->name === 'Player') {
-            return response()->json(['message' => 'Players are not allowed to login here'], 403);
+        // Restrict login to players only
+        if ($user->role->name !== 'Player') {
+            return response()->json(['message' => 'Only players can login here'], 403);
         }
 
-        // Generate a new token with non-player abilities
-        $token = $user->createToken('auth_token', ['non-player'])->plainTextToken;
+        // Generate a new token with player abilities
+        $token = $user->createToken('auth_token', ['player'])->plainTextToken;
 
         // Update last accessed time
         $user->update(['last_accessed' => now()]);
@@ -51,29 +52,18 @@ class AuthController extends Controller
     }
 
     /**
-     * Logout the authenticated user.
-     */
-    public function logout(Request $request)
-    {
-        // Revoke the current access token
-        $request->user()->currentAccessToken()->delete();
-        return response()->json(['message' => 'Logged out successfully'], 200);
-    }
-
-    /**
-     * Get the authenticated user's details.
+     * Get the authenticated player's details.
      */
     public function me(Request $request)
     {
-        $user = $request->user();
+        $player = $request->user();
         $siteSettings = SiteSettings::first();
 
         return response()->json([
-            'id' => $user->id,
-            'username' => $user->username,
-            'balance' => $user->balance,
-            'role' => $user->role->name,
+            'id' => $player->id,
+            'username' => $player->username,
+            'balance' => $player->balance, 
             'currency' => $siteSettings ? $siteSettings->currency : null,
-        ], 200);
+        ]);
     }
 }

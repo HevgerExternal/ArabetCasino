@@ -7,22 +7,24 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserSettingsController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\PlayerController;
 
 // Public Routes (Unauthenticated)
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->name('auth.login');
+    Route::post('/player/login', [PlayerController::class, 'login'])->name('auth.login');
 });
 
 // Protected Routes (Authenticated)
 Route::middleware('auth:sanctum')->group(function () {
     // Authentication
     Route::prefix('auth')->group(function () {
-        Route::post('/logout', [AuthController::class, 'logout'])->name('auth.logout');
-        Route::get('/me', [AuthController::class, 'me'])->name('auth.me');
+        Route::post('/logout', [AuthController::class, 'logout'])->name('auth.logout'); // Accessible to all
+        Route::get('/me', [AuthController::class, 'me'])->middleware('token.type:non-player')->name('auth.me');
     });
 
-    // User Management
-    Route::prefix('users')->group(function () {
+    // User Management (Restricted to non-player)
+    Route::middleware('token.type:non-player')->prefix('users')->group(function () {
         Route::post('/', [UserController::class, 'createUser'])->name('users.create');
         Route::patch('/{userId}/status', [UserController::class, 'changeStatus'])->name('users.changeStatus');
         Route::patch('/{userId}/password', [UserController::class, 'changePassword'])->name('users.changePassword');
@@ -32,13 +34,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{userId}', [UserController::class, 'getUserById'])->name('users.getById');
     });
 
-    // Dashboard
-    Route::prefix('dashboard')->group(function () {
+    // Dashboard (Restricted to non-player)
+    Route::middleware('token.type:non-player')->prefix('dashboard')->group(function () {
         Route::get('/statistics', [DashboardController::class, 'getStatistics'])->name('dashboard.getStatistics');
     });
 
-    // User Settings
-    Route::prefix('me')->group(function () {
+    // User Settings (Restricted to non-player)
+    Route::middleware('token.type:non-player')->prefix('me')->group(function () {
         Route::patch('/password', function (Request $request, UserController $controller) {
             return $controller->changePassword($request, $request->user()->id);
         })->name('users.changeOwnPassword');
@@ -47,10 +49,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/roles', [UserSettingsController::class, 'getRolesUnderUser'])->name('roles.underUser');
     });
 
-    // Transactions
-    Route::prefix('transactions')->group(function () {
+    // Transactions (Restricted to non-player)
+    Route::middleware('token.type:non-player')->prefix('transactions')->group(function () {
         Route::post('/', [TransactionController::class, 'createTransaction'])->name('transactions.create');
         Route::get('/', [TransactionController::class, 'getTransactions'])->name('transactions.getAll');
         Route::get('/user/{userId}', [TransactionController::class, 'getUserTransactions'])->name('transactions.getUser');
+    });
+
+    Route::middleware('token.type:player')->prefix('player')->group(function () {
+        Route::get('/me', [PlayerController::class, 'me'])->name('player.me');
     });
 });
