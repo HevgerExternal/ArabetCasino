@@ -16,37 +16,52 @@ class ProviderSeeder extends Seeder
         // Base URL for provider images
         $baseImageUrl = config('app.url') . '/providers';
 
-        // Predefined list of providers
-        $providers = [
+        // List of provider slugs for LVL Slots
+        $lvlSlotsProviders = ["rubyplay", "novomatic", "apollo", "amatic", "playngo", "scientific_games", "kajot", "pragmatic", "microgaming", "ainsworth", "quickspin", "netent", "habanero", "igt", "aristocrat", "igrosoft", "apex", "merkur", "wazdan", "egt", "roulette", "bingo", "keno"];            
+        
+        // Additional providers for Nexus
+        $nexusProviders = [
             [
-                'slug' => 'ainsworth',
-                'name' => 'Ainsworth',
-                'external_provider_name' => 'LvlSlots',
+                'slug' => 'evolution',
+                'name' => 'Evolution',
             ],
             [
-                'slug' => 'pragmatic',
-                'name' => 'Pragmatic Play',
-                'external_provider_name' => 'Nexus',
-            ],
+                'slug' => 'pragmatic_live',
+                'name' => 'Pragmatic Live',
+            ]
         ];
 
-        foreach ($providers as $provider) {
-            // Find or create the external provider
-            $externalProvider = ExternalProvider::firstOrCreate(
-                ['name' => $provider['external_provider_name']],
-                []
-            );
+        // Assign all LVL Slots providers to LvlSlots
+        $lvlSlotsExternalProvider = ExternalProvider::firstOrCreate(['name' => 'LvlSlots'], []);
+        foreach ($lvlSlotsProviders as $slug) {
+            $name = ucwords(str_replace('_', ' ', $slug));
+            $imageUrl = "{$baseImageUrl}/{$slug}.png";
 
-            // Construct the image URL based on the slug
-            $imageUrl = "{$baseImageUrl}/{$provider['slug']}.png";
-
-            // Update or create the provider
             Provider::updateOrCreate(
-                ['slug' => $provider['slug']],
+                ['slug' => $slug],
                 [
-                    'name' => $provider['name'],
+                    'name' => $name,
                     'image' => $imageUrl,
-                    'external_provider_id' => $externalProvider->id,
+                    'external_provider_id' => $lvlSlotsExternalProvider->id,
+                    'type' => 'slot'
+                ]
+            );
+        }
+
+        // Assign additional Nexus providers to Nexus
+        $nexusExternalProvider = ExternalProvider::firstOrCreate(['name' => 'Nexus'], []);
+        foreach ($nexusProviders as $provider) {
+            $slug = $provider['slug'];
+            $name = $provider['name'];
+            $imageUrl = "{$baseImageUrl}/{$slug}.png";
+
+            Provider::updateOrCreate(
+                ['slug' => $slug],
+                [
+                    'name' => $name,
+                    'image' => $imageUrl,
+                    'external_provider_id' => $nexusExternalProvider->id,
+                    'type' => 'live'
                 ]
             );
         }

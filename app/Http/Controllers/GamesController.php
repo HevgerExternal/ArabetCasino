@@ -35,7 +35,8 @@ class GamesController extends Controller
                         $provider->slug,
                         $provider->name,
                         $provider->image,
-                        $provider->external_provider_id
+                        $provider->external_provider_id,
+                        $provider->type
                     );
                 }
             }

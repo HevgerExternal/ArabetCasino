@@ -14,6 +14,7 @@ class Provider extends Model
         'name',
         'image',
         'external_provider_id',
+        'type',
     ];
 
     /**
