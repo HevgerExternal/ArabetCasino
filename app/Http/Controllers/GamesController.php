@@ -29,7 +29,7 @@ class GamesController extends Controller
 
             // Get providers from the API service
             $providers = $this->lvlGameApiService->getProviders();
-
+            
             // Map providers to DTOs with type filter
             $providerDtos = [];
             foreach ($providers as $providerSlug) {
@@ -148,7 +148,7 @@ class GamesController extends Controller
                 'img' => 'game_img_2',
                 'login' => $request->user()->username,
                 'gameId' => $gameId,
-                'domain' => config('app.url'),
+                'domain' => env('EXIT_URL'),
                 'exitUrl' => '',
                 'demo' => '0',
                 'language' => 'en',

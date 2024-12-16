@@ -9,6 +9,7 @@ use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\GamesController;
+use App\Http\Controllers\LvlGameCallbackController;
 
 // Public Routes (Unauthenticated)
 Route::prefix('auth')->group(function () {
@@ -71,3 +72,5 @@ Route::prefix('games')->group(function () {
     Route::get('/providers', [GamesController::class, 'getProviders'])->name('games.provider');
     Route::get('/games', [GamesController::class, 'getGames'])->name('games.games');
 });
+
+Route::post('/lvlgames/callback', [LvlGameCallbackController::class, 'handleCallback'])->name('callback.handle');
