@@ -8,6 +8,7 @@ use App\Http\Controllers\UserSettingsController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PlayerController;
+use App\Http\Controllers\BetsController;
 use App\Http\Controllers\GamesController;
 use App\Http\Controllers\LvlGameCallbackController;
 use App\Http\Controllers\NexusCallbackController;
@@ -57,6 +58,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [TransactionController::class, 'createTransaction'])->name('transactions.create');
         Route::get('/', [TransactionController::class, 'getTransactions'])->name('transactions.getAll');
         Route::get('/user/{userId}', [TransactionController::class, 'getUserTransactions'])->name('transactions.getUser');
+        Route::get('/user/{userId}/bets', [BetsController::class, 'getPlayerBets'])->name('bets.getPlayerBets');
+    });
+
+    // Transactions (Restricted to non-player)
+    Route::middleware('token.type:non-player')->prefix('bets')->group(function () {
+        Route::get('/user/{userId}', [BetsController::class, 'getPlayerBets'])->name('bets.getPlayerBets');
     });
 
     Route::middleware('token.type:player')->prefix('player')->group(function () {
