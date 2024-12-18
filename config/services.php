@@ -35,4 +35,17 @@ return [
         ],
     ],
 
+    'lvl' => [
+        'api_domain' => env('LVL_API_DOMAIN', ''),
+        'game_hall' => env('LVL_GAME_HALL', ''),
+        'game_key' => env('LVL_GAME_KEY', ''),
+        'exit_url' => env('EXIT_URL', ''),
+    ],
+
+    'nexus' => [
+        'api_url' => env('NEXUS_API_DOMAIN', ''),
+        'agent_code' => env('NEXUS_AGENT_CODE', ''),
+        'agent_token' => env('NEXUS_AGENT_TOKEN', ''),
+        'agent_secret' => env('NEXUS_AGENT_SECRET', ''),
+    ],
 ];

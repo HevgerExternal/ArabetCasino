@@ -7,21 +7,19 @@ use Illuminate\Support\Facades\Log;
 
 class LvlGameApiService
 {
-    protected string $apiUrl = 'https://tbs2api.aslot.net/API/';
+    protected string $apiUrl;
 
-    /**
-     * Send a request to the external API using the cmd field.
-     *
-     * @param string $cmd
-     * @param array $additionalPayload
-     * @return array
-     */
+    public function __construct()
+    {
+        $this->apiUrl = config('services.lvl.api_domain');
+    }
+
     public function sendRequest(string $cmd, array $additionalPayload = []): array
     {
         try {
             $payload = array_merge([
-                'hall' => env('LVL_GAME_HALL'),
-                'key' => env('LVL_GAME_KEY'),
+                'hall' => config('services.lvl.game_hall'),
+                'key' => config('services.lvl.game_key'),
                 'cmd' => $cmd,
                 'cdnUrl' => '',
                 'img' => 'game_img_2',
@@ -49,11 +47,6 @@ class LvlGameApiService
         }
     }
 
-    /**
-     * Get the provider keys from the response.
-     *
-     * @return array
-     */
     public function getProviders(): array
     {
         $response = $this->sendRequest('getGamesList');
@@ -69,11 +62,6 @@ class LvlGameApiService
         ];
     }
 
-    /**
-     * Fetch all games from the external API.
-     *
-     * @return array
-     */
     public function getGames(): array
     {
         $response = $this->sendRequest('getGamesList');
@@ -86,25 +74,19 @@ class LvlGameApiService
         throw new \Exception('Failed to fetch games from the API: ' . ($response['message'] ?? 'Unknown error'));
     }
 
-    /**
-     * Open a game using a dedicated endpoint.
-     *
-     * @param array $data
-     * @return array
-     */
     public function openGame(array $data): array
     {
         $url = $this->apiUrl . 'openGame/';
 
         $payload = [
-            'hall' => env('LVL_GAME_HALL'),
-            'key' => env('LVL_GAME_KEY'),
+            'hall' => config('services.lvl.game_hall'),
+            'key' => config('services.lvl.game_key'),
             'gameId' => $data['gameId'],
             'login' => $data['login'],
             'demo' => $data['demo'] ?? '0',
             'language' => $data['language'] ?? 'en',
             'cdnUrl' => $data['cdnUrl'] ?? '',
-            'exitUrl' => $data['exitUrl'] ?? env('EXIT_URL'),
+            'exitUrl' => $data['exitUrl'] ?? config('services.lvl.exit_url'),
         ];
 
         try {

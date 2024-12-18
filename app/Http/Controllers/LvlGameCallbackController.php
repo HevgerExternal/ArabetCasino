@@ -70,7 +70,9 @@ class LvlGameCallbackController extends Controller
             'trade_id' => $validated['tradeId'] ?? null,
             'bet_amount' => $validated['bet'],
             'win_amount' => $validated['win'],
-            'matrix' => $validated['matrix'] ?? null,
+            'info' => $validated['matrix'] ?? null,
+            'type' => "slot",
+            'provider' => "lvl"
         ]);
 
         return response()->json(['status' => 'success', 'balance' => $user->balance], 200);

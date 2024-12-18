@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\SiteSettings;
 use App\Models\User;
 use App\Models\Transaction;
+use App\Models\Bet;
 
 class PlayerController extends Controller
 {
@@ -104,6 +105,39 @@ class PlayerController extends Controller
             'per_page' => $transactions->perPage(),
             'total' => $transactions->total(),
             'data' => $transactions->items(),
+        ], 200);
+    }
+
+    /**
+     * Get bets for the authenticated player with filters.
+     */
+    public function bets(Request $request)
+    {
+        $authenticatedUser = $request->user();
+
+        // Validate filters
+        $filters = $request->validate([
+            'from_date' => 'nullable|date',
+            'to_date' => 'nullable|date',
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+
+        // Apply filters
+        $query = Bet::query()
+            ->where('user_id', $authenticatedUser->id)
+            ->when(!empty($filters['from_date']), fn($q) => $q->whereDate('created_at', '>=', $filters['from_date']))
+            ->when(!empty($filters['to_date']), fn($q) => $q->whereDate('created_at', '<=', $filters['to_date']))
+            ->orderBy('created_at', 'desc');
+
+        // Get paginated bets
+        $bets = $query->paginate($filters['per_page'] ?? 10);
+
+        // Return response
+        return response()->json([
+            'current_page' => $bets->currentPage(),
+            'per_page' => $bets->perPage(),
+            'total' => $bets->total(),
+            'data' => $bets->items(),
         ], 200);
     }
 }

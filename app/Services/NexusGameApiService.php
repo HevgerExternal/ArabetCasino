@@ -7,16 +7,17 @@ use Illuminate\Support\Facades\Log;
 
 class NexusGameApiService
 {
-    protected string $apiUrl = 'https://api.shinoapi.com';
-    protected string $agentCode = 'Arabet';
-    protected string $agentToken = '4e77f1ff8d063fefd57a274e6a08eb6d';
+    protected string $apiUrl;
+    protected string $agentCode;
+    protected string $agentToken;
 
-    /**
-     * Send a request to the Nexus API.
-     *
-     * @param array $payload
-     * @return array
-     */
+    public function __construct()
+    {
+        $this->apiUrl = config('services.nexus.api_url');
+        $this->agentCode = config('services.nexus.agent_code');
+        $this->agentToken = config('services.nexus.agent_token');
+    }
+
     protected function sendRequest(array $payload): array
     {
         try {
@@ -40,11 +41,6 @@ class NexusGameApiService
         }
     }
 
-    /**
-     * Get the list of providers.
-     *
-     * @return array
-     */
     public function getProviders(): array
     {
         $payload = [
@@ -56,8 +52,7 @@ class NexusGameApiService
         $response = $this->sendRequest($payload);
 
         if ($response['status'] === 1) {
-            $providers = $response['providers'] ?? [];
-            return $providers;
+            return $response['providers'] ?? [];
         }
 
         return [
@@ -66,12 +61,6 @@ class NexusGameApiService
         ];
     }
 
-    /**
-     * Get the list of games for a specific provider.
-     *
-     * @param string $providerCode
-     * @return array
-     */
     public function getGames(string $providerCode): array
     {
         $payload = [
@@ -84,8 +73,7 @@ class NexusGameApiService
         $response = $this->sendRequest($payload);
 
         if ($response['status'] === 1) {
-            $games = $response['games'] ?? [];
-            return $games;
+            return $response['games'] ?? [];
         }
 
         return [
@@ -94,15 +82,6 @@ class NexusGameApiService
         ];
     }
 
-    /**
-     * Launch a specific game.
-     *
-     * @param string $userCode
-     * @param string $providerCode
-     * @param string $gameCode
-     * @param string $language
-     * @return array
-     */
     public function openGame(string $userCode, string $providerCode, string $gameCode, string $language = 'en'): array
     {
         $payload = [
@@ -117,7 +96,7 @@ class NexusGameApiService
 
         $response = $this->sendRequest($payload);
 
-        if ($response['status'] === 1 && $response['msg'] === "SUCCESS") {
+        if ($response['status'] === 1 && $response['msg'] === 'SUCCESS') {
             return [
                 'status' => 'success',
                 'gameUrl' => $response['launch_url'] ?? null,

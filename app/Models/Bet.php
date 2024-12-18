@@ -14,6 +14,17 @@ class Bet extends Model
         'trade_id',
         'bet_amount',
         'win_amount',
-        'matrix',
+        'type',
+        'provider',
+        'info'
+    ];
+
+    protected $casts = [
+        'type' => 'string',
+    ];
+
+    protected $hidden = [
+        'provider',
+        'info'
     ];
 }

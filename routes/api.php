@@ -10,6 +10,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\GamesController;
 use App\Http\Controllers\LvlGameCallbackController;
+use App\Http\Controllers\NexusCallbackController;
 
 // Public Routes (Unauthenticated)
 Route::prefix('auth')->group(function () {
@@ -61,6 +62,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('token.type:player')->prefix('player')->group(function () {
         Route::get('/me', [PlayerController::class, 'me'])->name('player.me');
         Route::get('/transactions', [PlayerController::class, 'transactions'])->name('player.transactions');
+        Route::get('/bets', [PlayerController::class, 'bets'])->name('player.bets');
     });
     Route::middleware('token.type:player')->prefix('games')->group(function () {
         Route::post(uri: '/open', action: [GamesController::class, 'openGame'])->name('games.open');
@@ -73,4 +75,5 @@ Route::prefix('games')->group(function () {
     Route::get('/games', [GamesController::class, 'getGames'])->name('games.games');
 });
 
-Route::post('/lvlgames/callback', [LvlGameCallbackController::class, 'handleCallback'])->name('callback.handle');
+Route::post('/lvlgames/callback', [LvlGameCallbackController::class, 'handleCallback'])->name('lvl.handle');
+Route::post('/nexus/gold_api', [NexusCallbackController::class, 'handleCallback'])->name('nexus.handle');
