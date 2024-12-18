@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ExternalProvider;
 use App\Services\LvlGameApiService;
+use App\Services\NexusGameApiService;
 use Illuminate\Http\Request;
 use App\DTOs\ProviderDto;
 use App\DTOs\GameDto;
@@ -12,13 +13,15 @@ use App\Models\Provider;
 class GamesController extends Controller
 {
     protected $lvlGameApiService;
+    protected $nexusGameApiService;
 
-    public function __construct(LvlGameApiService $lvlGameApiService)
+    public function __construct(LvlGameApiService $lvlGameApiService, NexusGameApiService $nexusGameApiService)
     {
         $this->lvlGameApiService = $lvlGameApiService;
+        $this->nexusGameApiService = $nexusGameApiService;
     }
 
-    /**
+   /**
      * Get game providers and wrap them in DTOs.
      */
     public function getProviders(Request $request)
@@ -27,28 +30,28 @@ class GamesController extends Controller
             // Get the type filter from the request, default to 'slot'
             $type = $request->query('type', 'slot');
 
-            // Get providers from the API service
-            $providers = $this->lvlGameApiService->getProviders();
-            
-            // Map providers to DTOs with type filter
             $providerDtos = [];
-            foreach ($providers as $providerSlug) {
-                $provider = Provider::where('slug', $providerSlug)
-                    ->where('type', $type) // Apply the type filter
-                    ->first();
+            $processedSlugs = [];
 
-                if ($provider) {
-                    $providerDtos[] = new ProviderDto(
-                        $provider->slug,
-                        $provider->name,
-                        $provider->image,
-                        $provider->external_provider_id,
-                        $provider->type
-                    );
+            $externalProviders = ExternalProvider::all();
+
+            foreach ($externalProviders as $externalProvider) {
+                $providers = $this->fetchProvidersByExternalProvider($externalProvider, $type);
+
+                foreach ($providers as $provider) {
+                    if (!in_array($provider->slug, $processedSlugs)) {
+                        $providerDtos[] = new ProviderDto(
+                            $provider->slug,
+                            $provider->name,
+                            $provider->image,
+                            $provider->external_provider_id,
+                            $provider->type
+                        );
+                        $processedSlugs[] = $provider->slug;
+                    }
                 }
             }
 
-            // Transform DTOs into array format for response
             $response = array_map(fn($dto) => $dto->toArray(), $providerDtos);
 
             return response()->json([
@@ -56,6 +59,8 @@ class GamesController extends Controller
                 'data' => $response,
             ], 200);
         } catch (\Exception $e) {
+            \Log::error('Error fetching providers:', ['exception' => $e]);
+
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to fetch providers.',
@@ -64,43 +69,106 @@ class GamesController extends Controller
     }
 
     /**
-     * Get games, optionally filtered by provider.
+     * Fetch providers for a specific external provider.
+     *
+     * @param ExternalProvider $externalProvider
+     * @param string $type
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    private function fetchProvidersByExternalProvider(ExternalProvider $externalProvider, string $type)
+    {
+        if ($externalProvider->name === 'LvlSlots') {
+            // Fetch providers from LvlGameApiService
+            $lvlProviders = $this->lvlGameApiService->getProviders();
+
+            return Provider::whereIn('slug', $lvlProviders)
+                ->where('type', $type)
+                ->where('external_provider_id', $externalProvider->id)
+                ->get();
+        }
+
+        if ($externalProvider->name === 'Nexus') {
+            // Fetch providers from NexusGameApiService
+            $nexusProvidersResponse = $this->nexusGameApiService->getProviders();
+
+            if (!is_array($nexusProvidersResponse)) {
+                return collect();
+            }
+
+            $validNexusProviders = array_filter($nexusProvidersResponse, function ($provider) use ($type) {
+                return $provider['type'] === $type && $provider['status'] === 1;
+            });
+
+            $slugs = array_map(fn($provider) => strtolower($provider['code']), $validNexusProviders);
+
+            return Provider::whereIn('slug', $slugs)
+                ->where('type', $type)
+                ->where('external_provider_id', $externalProvider->id)
+                ->get();
+        }
+
+        return collect();
+    }
+
+   /**
+     * Get games, optionally filtered by provider and type.
      */
     public function getGames(Request $request)
     {
         try {
-            // Get the provider slug from the request
+            $type = $request->query('type', 'slot');
+            
             $providerSlug = $request->query('provider');
-
-            // Fetch games from the external API
-            $games = $this->lvlGameApiService->getGames();
-            $lvlSlots = ExternalProvider::where('name', 'LvlSlots')->first();
 
             $groupedGames = [];
 
-            // Filter games by provider if specified
-            if ($providerSlug) {
-                if (!isset($games[$providerSlug])) {
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => 'Provider not found.',
-                    ], 404);
-                }
-                $games = [$providerSlug => $games[$providerSlug]];
-            }
+            $externalProviders = ExternalProvider::all();
 
-            // Group games by provider name
-            foreach ($games as $provider => $providerGames) {
-                $providerGamesDtos = [];
-                foreach ($providerGames as $game) {
-                    $providerGamesDtos[] = (new GameDto(
-                        $game['id'] ?? '',
-                        $game['name'] ?? '',
-                        $game['img'] ?? '',
-                        $game['providerId'] ?? $lvlSlots->id
-                    ))->toArray();
+            foreach ($externalProviders as $externalProvider) {
+                if ($externalProvider->name === 'LvlSlots') {
+                    $lvlSlotsProviders = Provider::where('external_provider_id', $externalProvider->id)
+                        ->where('type', $type)
+                        ->pluck('slug')
+                        ->toArray();
+
+                    $lvlGames = $this->lvlGameApiService->getGames();
+
+                    if ($providerSlug) {
+                        if (in_array($providerSlug, $lvlSlotsProviders)) {
+                            $groupedGames[$providerSlug] = $this->filterGames($lvlGames, $providerSlug, $externalProvider->id);
+                        }
+                    } else {
+                        foreach ($lvlSlotsProviders as $slug) {
+                            if (isset($lvlGames[$slug])) {
+                                $groupedGames[$slug] = $this->filterGames($lvlGames, $slug, $externalProvider->id);
+                            }
+                        }
+                    }
                 }
-                $groupedGames[$provider] = $providerGamesDtos;
+
+                if ($externalProvider->name === 'Nexus') {
+                    $nexusProviders = Provider::where('external_provider_id', $externalProvider->id)
+                        ->where('type', $type)
+                        ->pluck('slug')
+                        ->toArray();
+                    
+                    foreach ($nexusProviders as $nexusProviderSlug) {
+                        if (!$providerSlug || $providerSlug === $nexusProviderSlug) {
+                            $nexusGames = $this->nexusGameApiService->getGames($nexusProviderSlug);
+                         
+                            $groupedGames[$nexusProviderSlug] = array_map(
+                                fn($game) => (new GameDto(
+                                    $game['game_code'] ?? '',
+                                    ucwords(str_replace('_', ' ', strtolower($game['game_name']))) ?? '',
+                                    $game['banner'] ?? '',
+                                    $externalProvider->id,
+                                    $nexusProviderSlug
+                                ))->toArray(),
+                                $nexusGames
+                            );
+                        }
+                    }
+                }
             }
 
             return response()->json([
@@ -117,59 +185,73 @@ class GamesController extends Controller
         }
     }
 
+    /**
+     * Filter games by provider and map to DTOs.
+     *
+     * @param array $games
+     * @param string $providerSlug
+     * @param int $externalProviderId
+     * @return array
+     */
+    private function filterGames(array $games, string $providerSlug, int $externalProviderId): array
+    {
+        if (!isset($games[$providerSlug])) {
+            return [];
+        }
+
+        return array_map(
+            fn($game) => (new GameDto(
+                $game['id'] ?? '',
+                $game['name'] ?? '',
+                $game['img'] ?? '',
+                $externalProviderId,
+                $providerSlug
+            ))->toArray(),
+            $games[$providerSlug]
+        );
+    }
 
     public function openGame(Request $request)
     {
         try {
             $validated = $request->validate([
-                'gameId' => 'required|integer',
-                'providerId' => 'required|integer',
+                'gameId' => 'required|string',
+                'externalProviderId' => 'required|integer',
+                'provider' => 'nullable|string',
             ]);
 
-            $gameId = $validated['gameId'];
-            $providerId = $validated['providerId'];
+            $externalProvider = ExternalProvider::findOrFail($validated['externalProviderId']);
 
-            // Fetch the provider by ID
-            $provider = Provider::findOrFail($providerId);
+            switch ($externalProvider->name) {
+                case 'LvlSlots':
+                    $response = $this->lvlGameApiService->openGame([
+                        'gameId' => $validated['gameId'],
+                        'login' => $request->user()->username,
+                    ]);                    
+                    break;
 
-            // Ensure the provider is associated with LvlSlots
-            if ($provider->externalProvider->name !== 'LvlSlots') {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'This provider is not supported for game opening.',
-                ], 400);
-            }
+                case 'Nexus':
+                    $response = $this->nexusGameApiService->openGame(
+                        $request->user()->username,
+                        $validated['provider'],
+                        $validated['gameId'],
+                    );
+                    break;
 
-            // Prepare the payload for opening the game
-            $payload = [
-                'hall' => env('LVL_GAME_HALL'),
-                'key' => env('LVL_GAME_KEY'),
-                'cdnUrl' => '',
-                'img' => 'game_img_2',
-                'login' => $request->user()->username,
-                'gameId' => $gameId,
-                'domain' => env('EXIT_URL'),
-                'exitUrl' => '',
-                'demo' => '0',
-                'language' => 'en',
-            ];
-
-            // Call the service to open the game
-            $response = $this->lvlGameApiService->openGame($payload);
-
-            // Extract the game URL if the response is successful
-            if (isset($response['status']) && $response['status'] === 'success') {
-                $gameUrl = $response['content']['game']['url'] ?? null;
-
-                if ($gameUrl) {
+                default:
                     return response()->json([
-                        'status' => 'success',
-                        'gameUrl' => $gameUrl,
-                    ], 200);
-                }
+                        'status' => 'error',
+                        'message' => 'This external provider is not supported for game opening.',
+                    ], 400);
             }
 
-            // Handle error case
+            if (isset($response['status']) && $response['status'] === 'success') {
+                return response()->json([
+                    'status' => 'success',
+                    'gameUrl' => $response['gameUrl'],
+                ], 200);
+            }
+
             return response()->json([
                 'status' => 'error',
                 'message' => $response['message'] ?? 'Failed to open game.',
@@ -183,5 +265,4 @@ class GamesController extends Controller
             ], 500);
         }
     }
-
 }

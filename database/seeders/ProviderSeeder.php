@@ -17,7 +17,7 @@ class ProviderSeeder extends Seeder
         $baseImageUrl = config('app.url') . '/providers';
 
         // List of provider slugs for LVL Slots
-        $lvlSlotsProviders = ["rubyplay", "novomatic", "apollo", "amatic", "playngo", "scientific_games", "kajot", "pragmatic", "microgaming", "ainsworth", "quickspin", "netent", "habanero", "igt", "aristocrat", "igrosoft", "apex", "merkur", "wazdan", "egt", "roulette", "bingo", "keno"];            
+        $lvlSlotsProviders = ["rubyplay", "novomatic", "apollo", "amatic", "playngo", "scientific_games", "kajot", "pragmatic", "microgaming", "quickspin", "NetEnt", "habanero", "igt", "aristocrat", "igrosoft", "apex", "merkur", "egt", "roulette", "bingo", "keno"];            
         
         // Additional providers for Nexus
         $nexusProviders = [

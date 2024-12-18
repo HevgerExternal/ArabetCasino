@@ -10,7 +10,7 @@ class LvlGameApiService
     protected string $apiUrl = 'https://tbs2api.aslot.net/API/';
 
     /**
-     * Send a request to the external API.
+     * Send a request to the external API using the cmd field.
      *
      * @param string $cmd
      * @param array $additionalPayload
@@ -29,7 +29,7 @@ class LvlGameApiService
 
             $jsonPayload = json_encode($payload);
 
-            $response = Http::withBody($jsonPayload, 'application/json')->get($this->apiUrl);
+            $response = Http::withBody($jsonPayload, 'application/json')->post($this->apiUrl);
 
             if ($response->successful()) {
                 return $response->json();
@@ -50,7 +50,7 @@ class LvlGameApiService
     }
 
     /**
-     * Get only the provider keys from the response.
+     * Get the provider keys from the response.
      *
      * @return array
      */
@@ -86,35 +86,45 @@ class LvlGameApiService
         throw new \Exception('Failed to fetch games from the API: ' . ($response['message'] ?? 'Unknown error'));
     }
 
-      /**
-     * Open a game using the API.
+    /**
+     * Open a game using a dedicated endpoint.
      *
-     * @param array $payload
+     * @param array $data
      * @return array
      */
-    public function openGame(array $payload): array
+    public function openGame(array $data): array
     {
+        $url = $this->apiUrl . 'openGame/';
+
+        $payload = [
+            'hall' => env('LVL_GAME_HALL'),
+            'key' => env('LVL_GAME_KEY'),
+            'gameId' => $data['gameId'],
+            'login' => $data['login'],
+            'demo' => $data['demo'] ?? '0',
+            'language' => $data['language'] ?? 'en',
+            'cdnUrl' => $data['cdnUrl'] ?? '',
+            'exitUrl' => $data['exitUrl'] ?? env('EXIT_URL'),
+        ];
+
         try {
-            $url = $this->apiUrl . 'openGame/';
+            $response = Http::withHeaders(['Content-Type' => 'application/json'])->post($url, $payload);
 
-            // Send the request
-            $response = Http::withHeaders([
-                'Content-Type' => 'application/json',
-            ])->post($url, $payload);
-            
-            Log::error($response);
-
-            // Handle response
-            if ($response->successful()) {
-                return $response->json();
+            if ($response->successful() && isset($response['status']) && $response['status'] === 'success') {
+                return [
+                    'status' => 'success',
+                    'gameUrl' => $response['content']['game']['url'] ?? null,
+                ];
             }
+
+            Log::error('Failed to open game:', ['response' => $response->json()]);
 
             return [
                 'status' => 'error',
-                'message' => 'HTTP Error: ' . $response->status(),
+                'message' => $response->json('message') ?? 'Failed to open game.',
             ];
         } catch (\Exception $e) {
-            Log::error('Error in Game API Service', ['exception' => $e]);
+            Log::error('Error opening game:', ['exception' => $e]);
 
             return [
                 'status' => 'error',

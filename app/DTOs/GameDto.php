@@ -7,14 +7,16 @@ class GameDto
     public string $id;
     public string $name;
     public string $img;
-    public int $providerId;
+    public int $externalProviderId;
+    public string $provider;
 
-    public function __construct(string $id, string $name, string $img, int $providerId)
+    public function __construct(string $id, string $name, string $img, int $externalProviderId, string $provider)
     {
         $this->id = $id;
         $this->name = $name;
         $this->img = $img;
-        $this->providerId = $providerId;
+        $this->externalProviderId = $externalProviderId;
+        $this->provider = $provider;
     }
 
     /**
@@ -26,7 +28,8 @@ class GameDto
             'id' => $this->id,
             'name' => $this->name,
             'img' => $this->img,
-            'providerId' => $this->providerId,
+            'externalProviderId' => $this->externalProviderId,
+            'provider' => $this->provider,
         ];
     }
 }

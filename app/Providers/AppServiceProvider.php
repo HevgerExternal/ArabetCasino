@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use App\Services\LvlGameApiService;
+use App\Services\NexusGameApiService;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -14,6 +15,10 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(LvlGameApiService::class, function ($app) {
             return new LvlGameApiService();
+        });
+
+        $this->app->singleton(NexusGameApiService::class, function ($app) {
+            return new NexusGameApiService();
         });
     }
 
