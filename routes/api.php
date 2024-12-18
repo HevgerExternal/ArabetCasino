@@ -64,6 +64,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Transactions (Restricted to non-player)
     Route::middleware('token.type:non-player')->prefix('bets')->group(function () {
         Route::get('/user/{userId}', [BetsController::class, 'getPlayerBets'])->name('bets.getPlayerBets');
+        Route::get('/{betId}/visualize', [BetsController::class, 'visualizeBet'])->name('bets.visualizeBet');
     });
 
     Route::middleware('token.type:player')->prefix('player')->group(function () {
