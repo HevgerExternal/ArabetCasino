@@ -22,6 +22,8 @@ class BetsController extends Controller
             'to_date' => 'nullable|date',
             'type' => 'nullable|in:slot,live',
             'per_page' => 'nullable|integer|min:1|max:100',
+            'sort_by' => 'nullable|in:win_amount',
+            'sort_order' => 'nullable|in:asc,desc',
         ]);
 
         // Ensure the target user is in the hierarchy or is the authenticated user
@@ -51,7 +53,9 @@ class BetsController extends Controller
             ->when(!empty($filters['from_date']), fn($q) => $q->whereDate('created_at', '>=', $filters['from_date']))
             ->when(!empty($filters['to_date']), fn($q) => $q->whereDate('created_at', '<=', $filters['to_date']))
             ->when(!empty($filters['type']), fn($q) => $q->where('type', $filters['type']))
-            ->orderBy('created_at', 'desc');
+            ->when(!empty($filters['sort_by']), function ($q) use ($filters) {
+                $q->orderBy($filters['sort_by'], $filters['sort_order'] ?? 'asc');
+            }, fn($q) => $q->orderBy('created_at', 'desc')); // Default sort by `created_at`
 
         // Get paginated bets
         $bets = $betsQuery->paginate($filters['per_page'] ?? 10);
