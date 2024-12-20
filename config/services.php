@@ -48,4 +48,8 @@ return [
         'agent_token' => env('NEXUS_AGENT_TOKEN', ''),
         'agent_secret' => env('NEXUS_AGENT_SECRET', ''),
     ],
+
+    'turbostars' => [
+        'partner_secret' => env('TURBOSTARS_PARTNER_SECRET', ''),
+    ],
 ];

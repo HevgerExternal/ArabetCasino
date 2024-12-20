@@ -243,12 +243,6 @@ class TransactionController extends Controller
 
         $transactions = $query->paginate($perPage);
 
-        // Log the SQL query before execution
-        logger()->info('Query SQL:', [
-            'sql' => $query->toSql(),
-            'bindings' => $query->getBindings()
-        ]);
-
         // Initialize summary as null
         $summary = null;
 

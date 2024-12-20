@@ -12,6 +12,7 @@ use App\Http\Controllers\BetsController;
 use App\Http\Controllers\GamesController;
 use App\Http\Controllers\LvlGameCallbackController;
 use App\Http\Controllers\NexusCallbackController;
+use App\Http\Controllers\TurbostarsCallbackController;
 
 // Public Routes (Unauthenticated)
 Route::prefix('auth')->group(function () {
@@ -85,3 +86,7 @@ Route::prefix('games')->group(function () {
 
 Route::post('/lvlgames/callback', [LvlGameCallbackController::class, 'handleCallback'])->name('lvl.handle');
 Route::post('/nexus/gold_api', [NexusCallbackController::class, 'handleCallback'])->name('nexus.handle');
+
+// Sportsbook
+Route::post('/sportsbook/callback', [TurbostarsCallbackController::class, 'handleCallback'])->name('sportsbook.handle');
+Route::post('/sportsbook/callback/user/profile', [TurbostarsCallbackController::class, 'handleCallback'])->name('sportsbook.user.profile');
