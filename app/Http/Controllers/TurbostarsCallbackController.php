@@ -23,6 +23,7 @@ class TurbostarsCallbackController extends Controller
     public function handleCallback(Request $request)
     {
         $endpoint = $request->path();
+        $method = $request->method();
         $signature = $request->header('x-sign-jws');
 
         if (!$this->isValidSignature($signature, $request->getContent())) {
@@ -35,7 +36,10 @@ class TurbostarsCallbackController extends Controller
         $callbacks = [
             'api/sportsbook/callback/user/profile' => 'handleUserProfile',
             'api/sportsbook/callback/user/balance' => 'handleUserBalance',
-            'api/sportsbook/callback/payment/bet' => 'handleBetOperations',
+            'api/sportsbook/callback/payment/bet' => [
+                'POST' => 'placeBet',
+                'PUT' => 'handleBetOperations',
+            ],
         ];
 
         if (!array_key_exists($endpoint, $callbacks)) {
@@ -43,8 +47,18 @@ class TurbostarsCallbackController extends Controller
             return response()->json(['status' => 'fail', 'error' => 'Invalid endpoint'], 404);
         }
 
-        return $this->{$callbacks[$endpoint]}($request);
+        $callback = $callbacks[$endpoint];
+
+        if (is_array($callback)) {
+            if (!isset($callback[$method])) {
+                return response()->json(['status' => 'fail', 'error' => 'Method not supported'], 405);
+            }
+            $callback = $callback[$method];
+        }
+
+        return $this->{$callback}($request);
     }
+
 
     private function isValidSignature(string $sign, string $body): bool
     {

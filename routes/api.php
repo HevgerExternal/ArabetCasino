@@ -90,4 +90,4 @@ Route::post('/nexus/gold_api', [NexusCallbackController::class, 'handleCallback'
 // Sportsbook
 Route::post('/sportsbook/callback', [TurbostarsCallbackController::class, 'handleCallback'])->name('sportsbook.handle');
 Route::post('/sportsbook/callback/user/profile', [TurbostarsCallbackController::class, 'handleCallback'])->name('sportsbook.user.profile');
-Route::post('/sportsbook/callback/payment/bet', [TurbostarsCallbackController::class, 'handleCallback'])->name('sportsbook.payment.bet');
+Route::match(['post', 'put'], '/sportsbook/callback/payment/bet', [TurbostarsCallbackController::class, 'handleCallback'])->name('sportsbook.payment.bet');
