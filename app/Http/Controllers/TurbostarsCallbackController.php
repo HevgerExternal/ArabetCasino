@@ -9,7 +9,7 @@ use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Laravel\Sanctum\PersonalAccessToken;
 use App\Models\User;
-use App\Models\SportsTicket;
+use App\Models\Bet;
 
 class TurbostarsCallbackController extends Controller
 {
@@ -167,42 +167,42 @@ class TurbostarsCallbackController extends Controller
             'userId' => 'required|string',
             'type' => 'required|integer|in:1',
         ]);
-
+    
         if (is_array($data) && isset($data['error'])) {
             return $data;
         }
-
+    
         $user = User::find($data['userId']);
-
+    
         if (!$user) {
             return response()->json(['code' => 404, 'message' => 'User not found'], 404);
         }
-
+    
         if ($user->balance < $data['amount']) {
             return response()->json(['code' => 7, 'message' => 'Not enough money'], 400);
         }
-
+    
         $user->balance -= $data['amount'];
         $user->save();
-
-        SportsTicket::create([
+    
+        Bet::create([
             'user_id' => $user->id,
-            'transaction_id' => $data['transactionId'],
-            'amount' => $data['amount'],
+            'trade_id' => $data['transactionId'],
+            'bet_amount' => $data['amount'],
             'win_amount' => 0,
             'currency' => $data['currency'],
-            'type' => 'bet',
-            'game_type' => 'sportsbook',
-            'metadata' => $data,
+            'type' => 'sportsbook',
             'settle_status' => 'unsettled',
+            'info' => json_encode($data),
+            'provider' => 'turbostars'
         ]);
-
+    
         return response()->json([
             'transactionId' => $data['transactionId'],
             'transactionTime' => now()->toIso8601String(),
         ]);
     }
-
+    
     private function settleBet(Request $request)
     {
         $data = $this->validateRequest($request, [
@@ -218,14 +218,14 @@ class TurbostarsCallbackController extends Controller
             return $data;
         }
 
-        $ticket = SportsTicket::where('transaction_id', $data['transactionId'])->first();
+        $bet = Bet::where('trade_id', $data['transactionId'])->first();
 
-        if (!$ticket) {
-            return response()->json(['code' => 404, 'message' => 'Ticket not found'], 404);
+        if (!$bet) {
+            return response()->json(['code' => 404, 'message' => 'Bet not found'], 404);
         }
 
-        if ($ticket->settle_status === 'settled') {
-            return response()->json(['code' => 400, 'message' => 'Ticket already settled'], 400);
+        if ($bet->settle_status === 'settled') {
+            return response()->json(['code' => 400, 'message' => 'Bet already settled'], 400);
         }
 
         $user = User::find($data['userId']);
@@ -236,11 +236,11 @@ class TurbostarsCallbackController extends Controller
 
         if ($data['amount'] > 0) {
             $user->balance += $data['amount'];
-            $ticket->win_amount = $data['amount'];
+            $bet->win_amount = $data['amount'];
         }
 
-        $ticket->settle_status = 'settled';
-        $ticket->save();
+        $bet->settle_status = 'settled';
+        $bet->save();
         $user->save();
 
         return response()->json([
@@ -248,6 +248,7 @@ class TurbostarsCallbackController extends Controller
             'transactionTime' => now()->toIso8601String(),
         ]);
     }
+
 
     private function rollbackBet(Request $request)
     {
@@ -258,37 +259,37 @@ class TurbostarsCallbackController extends Controller
             'type' => 'required|integer|in:3',
             'userId' => 'required|string',
         ]);
-
+    
         if (is_array($data) && isset($data['error'])) {
             return $data;
         }
-
-        $ticket = SportsTicket::where('transaction_id', $data['transactionId'])->first();
-
-        if (!$ticket) {
-            return response()->json(['code' => 404, 'message' => 'Ticket not found'], 404);
+    
+        $bet = Bet::where('trade_id', $data['transactionId'])->first();
+    
+        if (!$bet) {
+            return response()->json(['code' => 404, 'message' => 'Bet not found'], 404);
         }
-
-        if ($ticket->settle_status === 'rolled_back') {
-            return response()->json(['code' => 400, 'message' => 'Ticket already rolled back'], 400);
+    
+        if ($bet->settle_status === 'rolled_back') {
+            return response()->json(['code' => 400, 'message' => 'Bet already rolled back'], 400);
         }
-
+    
         $user = User::find($data['userId']);
-
+    
         if (!$user) {
             return response()->json(['code' => 404, 'message' => 'User not found'], 404);
         }
-
-        $user->balance += $ticket->amount;
-        $ticket->settle_status = 'rolled_back';
-        $ticket->save();
+    
+        $user->balance += $bet->amount;
+        $bet->settle_status = 'rolled_back';
+        $bet->save();
         $user->save();
-
+    
         return response()->json([
             'transactionId' => $data['transactionId'],
             'transactionTime' => now()->toIso8601String(),
         ]);
-    }
+    }    
 
     private function getUserFromToken(string $token)
     {

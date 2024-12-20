@@ -88,6 +88,8 @@ Route::post('/lvlgames/callback', [LvlGameCallbackController::class, 'handleCall
 Route::post('/nexus/gold_api', [NexusCallbackController::class, 'handleCallback'])->name('nexus.handle');
 
 // Sportsbook
-Route::post('/sportsbook/callback', [TurbostarsCallbackController::class, 'handleCallback'])->name('sportsbook.handle');
-Route::post('/sportsbook/callback/user/profile', [TurbostarsCallbackController::class, 'handleCallback'])->name('sportsbook.user.profile');
-Route::match(['post', 'put'], '/sportsbook/callback/payment/bet', [TurbostarsCallbackController::class, 'handleCallback'])->name('sportsbook.payment.bet');
+Route::prefix('sportsbook/callback')->group(function () {
+    Route::post('/user/profile', [TurbostarsCallbackController::class, 'handleCallback'])->name('sportsbook.user.profile');
+    Route::post('/user/balance', [TurbostarsCallbackController::class, 'handleCallback'])->name('sportsbook.user.balance');
+    Route::match(['post', 'put'], '/payment/bet', [TurbostarsCallbackController::class, 'handleCallback'])->name('sportsbook.payment.bet');
+});

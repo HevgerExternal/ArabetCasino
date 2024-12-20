@@ -16,6 +16,8 @@ class Bet extends Model
         'win_amount',
         'type',
         'provider',
+        'currency',
+        'settle_status',
         'info'
     ];
 
