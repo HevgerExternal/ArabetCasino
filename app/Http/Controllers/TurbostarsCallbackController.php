@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Validator;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Laravel\Sanctum\PersonalAccessToken;
+use App\Models\User;
+use App\Models\SportsTicket;
 
 class TurbostarsCallbackController extends Controller
 {
@@ -15,13 +17,9 @@ class TurbostarsCallbackController extends Controller
 
     public function __construct()
     {
-        // Retrieve the secret from the services configuration
         $this->partnerSecret = config('services.turbostars.partner_secret');
     }
 
-    /**
-     * Handle the generic callback for Sportsbook.
-     */
     public function handleCallback(Request $request)
     {
         $endpoint = $request->path();
@@ -37,6 +35,7 @@ class TurbostarsCallbackController extends Controller
         $callbacks = [
             'api/sportsbook/callback/user/profile' => 'handleUserProfile',
             'api/sportsbook/callback/user/balance' => 'handleUserBalance',
+            'api/sportsbook/callback/payment/bet' => 'handleBetOperations',
         ];
 
         if (!array_key_exists($endpoint, $callbacks)) {
@@ -47,27 +46,6 @@ class TurbostarsCallbackController extends Controller
         return $this->{$callbacks[$endpoint]}($request);
     }
 
-    /**
-     * Validate the request payload.
-     */
-    private function validateRequest(Request $request, array $rules)
-    {
-        $validator = Validator::make($request->all(), $rules);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 'fail',
-                'error' => 'Invalid request payload',
-                'details' => $validator->errors(),
-            ], 400);
-        }
-
-        return $validator->validated();
-    }
-
-    /**
-     * Verify the request signature.
-     */
     private function isValidSignature(string $sign, string $body): bool
     {
         try {
@@ -89,9 +67,6 @@ class TurbostarsCallbackController extends Controller
         }
     }
 
-    /**
-     * Handle the /user/profile request.
-     */
     private function handleUserProfile(Request $request)
     {
         $payload = $this->validateRequest($request, [
@@ -124,9 +99,6 @@ class TurbostarsCallbackController extends Controller
         return response()->json($userProfile, 200);
     }
 
-    /**
-     * Handle the /user/balance request.
-     */
     private function handleUserBalance(Request $request)
     {
         $payload = $this->validateRequest($request, [
@@ -155,13 +127,174 @@ class TurbostarsCallbackController extends Controller
         return response()->json($userBalance, 200);
     }
 
-    /**
-     * Retrieve user from token.
-     */
+    private function handleBetOperations(Request $request)
+    {
+        $type = $request->input('type');
+
+        switch ($type) {
+            case 1:
+                return $this->placeBet($request);
+            case 2:
+                return $this->settleBet($request);
+            case 3:
+                return $this->rollbackBet($request);
+            default:
+                return response()->json(['status' => 'fail', 'error' => 'Invalid type'], 400);
+        }
+    }
+
+    private function placeBet(Request $request)
+    {
+        $data = $this->validateRequest($request, [
+            'token' => 'required|string',
+            'transactionId' => 'required|string',
+            'amount' => 'required|numeric|min:0.01',
+            'currency' => 'required|string',
+            'userId' => 'required|string',
+            'type' => 'required|integer|in:1',
+        ]);
+
+        if (is_array($data) && isset($data['error'])) {
+            return $data;
+        }
+
+        $user = User::find($data['userId']);
+
+        if (!$user) {
+            return response()->json(['code' => 404, 'message' => 'User not found'], 404);
+        }
+
+        if ($user->balance < $data['amount']) {
+            return response()->json(['code' => 7, 'message' => 'Not enough money'], 400);
+        }
+
+        $user->balance -= $data['amount'];
+        $user->save();
+
+        SportsTicket::create([
+            'user_id' => $user->id,
+            'transaction_id' => $data['transactionId'],
+            'amount' => $data['amount'],
+            'win_amount' => 0,
+            'currency' => $data['currency'],
+            'type' => 'bet',
+            'game_type' => 'sportsbook',
+            'metadata' => $data,
+            'settle_status' => 'unsettled',
+        ]);
+
+        return response()->json([
+            'transactionId' => $data['transactionId'],
+            'transactionTime' => now()->toIso8601String(),
+        ]);
+    }
+
+    private function settleBet(Request $request)
+    {
+        $data = $this->validateRequest($request, [
+            'transactionId' => 'required|string',
+            'amount' => 'required|numeric|min:0',
+            'currency' => 'required|string|min:3|max:5',
+            'type' => 'required|integer|in:2',
+            'userId' => 'required|string',
+            'resultType' => 'required|string|in:won,lost,refund,cashout',
+        ]);
+
+        if (is_array($data) && isset($data['error'])) {
+            return $data;
+        }
+
+        $ticket = SportsTicket::where('transaction_id', $data['transactionId'])->first();
+
+        if (!$ticket) {
+            return response()->json(['code' => 404, 'message' => 'Ticket not found'], 404);
+        }
+
+        if ($ticket->settle_status === 'settled') {
+            return response()->json(['code' => 400, 'message' => 'Ticket already settled'], 400);
+        }
+
+        $user = User::find($data['userId']);
+
+        if (!$user) {
+            return response()->json(['code' => 404, 'message' => 'User not found'], 404);
+        }
+
+        if ($data['amount'] > 0) {
+            $user->balance += $data['amount'];
+            $ticket->win_amount = $data['amount'];
+        }
+
+        $ticket->settle_status = 'settled';
+        $ticket->save();
+        $user->save();
+
+        return response()->json([
+            'transactionId' => $data['transactionId'],
+            'transactionTime' => now()->toIso8601String(),
+        ]);
+    }
+
+    private function rollbackBet(Request $request)
+    {
+        $data = $this->validateRequest($request, [
+            'transactionId' => 'required|string',
+            'amount' => 'required|numeric|min:0',
+            'currency' => 'required|string|min:3|max:5',
+            'type' => 'required|integer|in:3',
+            'userId' => 'required|string',
+        ]);
+
+        if (is_array($data) && isset($data['error'])) {
+            return $data;
+        }
+
+        $ticket = SportsTicket::where('transaction_id', $data['transactionId'])->first();
+
+        if (!$ticket) {
+            return response()->json(['code' => 404, 'message' => 'Ticket not found'], 404);
+        }
+
+        if ($ticket->settle_status === 'rolled_back') {
+            return response()->json(['code' => 400, 'message' => 'Ticket already rolled back'], 400);
+        }
+
+        $user = User::find($data['userId']);
+
+        if (!$user) {
+            return response()->json(['code' => 404, 'message' => 'User not found'], 404);
+        }
+
+        $user->balance += $ticket->amount;
+        $ticket->settle_status = 'rolled_back';
+        $ticket->save();
+        $user->save();
+
+        return response()->json([
+            'transactionId' => $data['transactionId'],
+            'transactionTime' => now()->toIso8601String(),
+        ]);
+    }
+
     private function getUserFromToken(string $token)
     {
         $accessToken = PersonalAccessToken::findToken($token);
 
         return $accessToken ? $accessToken->tokenable : null;
+    }
+
+    private function validateRequest(Request $request, array $rules)
+    {
+        $validator = Validator::make($request->all(), $rules);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'fail',
+                'error' => 'Invalid request payload',
+                'details' => $validator->errors(),
+            ], 400);
+        }
+
+        return $validator->validated();
     }
 }
