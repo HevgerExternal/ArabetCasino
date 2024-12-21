@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use App\Models\SiteSettings;
 use App\Models\User;
 use App\Models\Transaction;
+use App\Models\ExchangeRate;
 use App\Models\Bet;
 
 class PlayerController extends Controller
@@ -58,17 +58,22 @@ class PlayerController extends Controller
      */
     public function me(Request $request)
     {
-        $player = $request->user();
-        $siteSettings = SiteSettings::first();
-
+        $user = $request->user();
+    
+        $balance = $user->balance;
+        if ($user->currency === 'USD') {
+            $rate = ExchangeRate::getRate('LBP');
+            $balance = $rate ? $balance / $rate : $balance;
+        }
+    
         return response()->json([
-            'id' => $player->id,
-            'username' => $player->username,
-            'balance' => $player->balance, 
-            'currency' => $siteSettings ? $siteSettings->currency : null,
-        ]);
+            'id' => $user->id,
+            'username' => $user->username,
+            'balance' => round($balance, 2),
+            'role' => $user->role->name,
+            'currency' => $user->currency,
+        ], 200);
     }
-
     
    /**
      * Get transactions for the authenticated player with filters.
@@ -138,6 +143,28 @@ class PlayerController extends Controller
             'per_page' => $bets->perPage(),
             'total' => $bets->total(),
             'data' => $bets->items(),
+        ], 200);
+    }
+
+     /**
+     * Update the authenticated player's currency.
+     */
+    public function updateCurrency(Request $request)
+    {
+        $player = $request->user();
+        
+        // Validate that currency is either USD or LBP
+        $validatedData = $request->validate([
+            'currency' => 'required|in:USD,LBP',
+        ]);
+
+        $player->update([
+            'currency' => $validatedData['currency']
+        ]);
+
+        return response()->json([
+            'message' => 'Currency updated successfully.',
+            'currency' => $player->currency
         ], 200);
     }
 }

@@ -19,6 +19,7 @@ class User extends Authenticatable
         'roleId',
         'status',
         'last_accessed',
+        'currency',
     ];
 
     protected $hidden = [

@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
-use App\Models\SiteSettings;
 
 class AuthController extends Controller
 {
@@ -66,14 +65,13 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         $user = $request->user();
-        $siteSettings = SiteSettings::first();
 
         return response()->json([
             'id' => $user->id,
             'username' => $user->username,
             'balance' => $user->balance,
             'role' => $user->role->name,
-            'currency' => $siteSettings ? $siteSettings->currency : null,
+            'currency' => $user->currency,
         ], 200);
     }
 }

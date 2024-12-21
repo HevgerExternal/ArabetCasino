@@ -5,14 +5,12 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\UserHierarchy;
-use App\Models\SiteSettings;
 
 class DashboardController extends Controller
 {
     public function getStatistics(Request $request)
     {
         $authenticatedUser = $request->user();
-        $siteSettings = SiteSettings::first();
     
         // Get all users in the hierarchy, including the authenticated user for balance
         $userIdsForBalance = $this->getUserHierarchyIds($authenticatedUser, true);
@@ -28,7 +26,7 @@ class DashboardController extends Controller
             'total_bet' => 0, // Placeholder for future implementation
             'total_win' => 0, // Placeholder for future implementation
             'total_ggr' => 0, // Placeholder for future implementation
-            'currency' => $siteSettings ? $siteSettings->currency : null,
+            'currency' => $authenticatedUser->currency,
         ];
         return response()->json($data);
     }

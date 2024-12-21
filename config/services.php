@@ -39,6 +39,8 @@ return [
         'api_domain' => env('LVL_API_DOMAIN', ''),
         'game_hall' => env('LVL_GAME_HALL', ''),
         'game_key' => env('LVL_GAME_KEY', ''),
+        'game_hall_usd' => env('LVL_GAME_HALL_USD', ''),
+        'game_key_usd' => env('LVL_GAME_KEY_USD', ''),
         'exit_url' => env('EXIT_URL', ''),
     ],
 
@@ -47,9 +49,17 @@ return [
         'agent_code' => env('NEXUS_AGENT_CODE', ''),
         'agent_token' => env('NEXUS_AGENT_TOKEN', ''),
         'agent_secret' => env('NEXUS_AGENT_SECRET', ''),
+        'agent_code_usd' => env('NEXUS_AGENT_CODE_USD', ''),
+        'agent_token_usd' => env('NEXUS_AGENT_TOKEN_USD', ''),
+        'agent_secret_usd' => env('NEXUS_AGENT_SECRET_USD', ''),
     ],
 
     'turbostars' => [
         'partner_secret' => env('TURBOSTARS_PARTNER_SECRET', ''),
+    ],
+
+    'currencyfreaks' => [
+        'api_key' => env('CURRENCYFREAKS_API_KEY'),
+        'endpoint' => 'https://api.currencyfreaks.com/v2.0/rates/latest',
     ],
 ];

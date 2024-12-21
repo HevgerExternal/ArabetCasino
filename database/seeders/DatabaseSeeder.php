@@ -21,10 +21,7 @@ class DatabaseSeeder extends Seeder
 
         // Run the UserSettingsSeeder to create settings if not created before
         $this->call(UserSettingsSeeder::class);
-
-        // Run the SiteSettingsSeeder to set site settings
-        $this->call(SiteSettingsSeeder::class);
-
+        
         // Run the seeders for providers
         $this->call(ExternalProviderSeeder::class);
         $this->call(ProviderSeeder::class);
